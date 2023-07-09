@@ -1,4 +1,5 @@
 (fp_lib_table
   (version 7)
-  (lib (name "Library")(type "KiCad")(uri "${KIPRJMOD}/Library.pretty")(options "")(descr ""))
+  (lib (name "000_project_library")(type "KiCad")(uri "${KIPRJMOD}/000_project_library.pretty")(options "")(descr ""))
+  (lib (name "OPL_Connector")(type "KiCad")(uri "/home/maerki/work_2023_filament_dryer/OPL_Kicad_Library/Seeed_Fusion_PCBA_OPL_Component_Library_for_KiCad/OPL_Connector.pretty")(options "")(descr ""))
 )

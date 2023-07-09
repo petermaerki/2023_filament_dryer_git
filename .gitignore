@@ -1,2 +1,5 @@
 hardware_kicad/fp-info-cache
 hardware_kicad/filament_dryer-backups/**
+hardware_kicad/*.bak
+hardware_kicad/sym-lib-table
+hardware_kicad/production/**
