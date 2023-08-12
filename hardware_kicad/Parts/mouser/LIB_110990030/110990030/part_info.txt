@@ -1,0 +1,9 @@
+Manufacturer=Seeed Studio
+PartNumber=110990030
+PartCategory=Connector
+PackageCategory=Other
+PinCount=4
+Version=1.2
+Released=2023-06-27 16:20:42
+Downloaded=2023-07-16 15:29:06
+3D=Y

@@ -1,0 +1,27 @@
+EESchema-LIBRARY Version 2.3
+#encoding utf-8
+#SamacSys ECAD Model 114020164
+#/12165291/1179822/2.50/6/0/Connector
+DEF 114020164 J 0 30 Y Y 1 F N
+F0 "J" 750 300 50 H V L CNN
+F1 "114020164" 750 200 50 H V L CNN
+F2 "114020164" 750 100 50 H I L CNN
+F3 "https://files.seeedstudio.com/products/114020164/res/Grove%20Female%20Header%20-%20SMD-4P-2.0mm-90D%20Datasheet.pdf" 750 0 50 H I L CNN
+F4 "Seeed Studio Accessories Grove Female Header - SMD-4P-2.0mm-90D-20Pcs" 750 -100 50 H I L CNN "Description"
+F5 "5.45" 750 -200 50 H I L CNN "Height"
+F6 "713-114020164" 750 -300 50 H I L CNN "Mouser Part Number"
+F7 "https://www.mouser.co.uk/ProductDetail/Seeed-Studio/114020164?qs=7MVldsJ5Uayw%2FOfizq4F8w%3D%3D" 750 -400 50 H I L CNN "Mouser Price/Stock"
+F8 "Seeed Studio" 750 -500 50 H I L CNN "Manufacturer_Name"
+F9 "114020164" 750 -600 50 H I L CNN "Manufacturer_Part_Number"
+DRAW
+X 1 1 900 0 200 L 50 50 0 0 P
+X 2 2 900 -100 200 L 50 50 0 0 P
+X 3 3 900 -200 200 L 50 50 0 0 P
+X 4 4 900 -300 200 L 50 50 0 0 P
+X MP1 MP1 0 0 200 R 50 50 0 0 P
+X MP2 MP2 0 -100 200 R 50 50 0 0 P
+P 5 0 1 6 200 100 700 100 700 -400 200 -400 200 100 N
+ENDDRAW
+ENDDEF
+#
+#End Library
