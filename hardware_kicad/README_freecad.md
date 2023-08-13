@@ -26,8 +26,7 @@ del objs
   * Default line width `0.2 mm`
   * Default units: `Millimeters`
 
-TODO: Where to position?
-TODO: Keepout rules
+Flip horizontally!
 
 ## Footprint -> KiCad
 
