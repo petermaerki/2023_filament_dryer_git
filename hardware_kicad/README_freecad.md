@@ -43,6 +43,10 @@ importDXF.export(objs,u"/tmp/dryer_print3d.dxf")
 del objs
 ```
 
+In VSCode:
+
+`mv /tmp/dryer_print3d.dxf ./hardware_kicad/Parts/drayer_print_3d`
+
 ### KiCad
 
 Footprint Editor
@@ -74,6 +78,10 @@ ImportGui.export(objs,u"/tmp/dryer_print3d.step")
 
 del objs
 ```
+
+In VSCode:
+
+`mv /tmp/dryer_print3d.step ./hardware_kicad/Parts/drayer_print_3d`
 
 ### KiCad
 

@@ -6227,7 +6227,7 @@
       ffee0cc1-2358-4b26-8e8a-591a9981210e
     )
   )
-  (model "/tmp/dryer_print3d.step"
+  (model "${KIPRJMOD}/Parts/drayer_print_3d/dryer_print3d.step"
     (opacity 0.5300)    (offset (xyz 0 0 0))
     (scale (xyz 1 1 1))
     (rotate (xyz 0 180 0))
