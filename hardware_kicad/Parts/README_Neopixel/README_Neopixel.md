@@ -1,3 +1,11 @@
+# Neopixel
+
+* Pro: Cool
+* Con: Requires `PCBA Type: Standard`. Economic is about USD30 less per order
+* Con: Neopixel more expensive (USD2.2 + USD)
+* Con: Neopixel may break
+* Con: Neopixel may get less hot
+
 ## Size on PCB
 
 30mm * 30mm = 900mm2
