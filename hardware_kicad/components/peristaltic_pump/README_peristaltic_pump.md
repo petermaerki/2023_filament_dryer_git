@@ -24,17 +24,17 @@ Applicable module: A4988, DRV8825
 
 Brand Name: MINGYUANDINGYE
 
-MS1, MS2, MS3
-
 ## Driver Board
 
 https://www.ti.com/lit/ds/symlink/drv8825.pdf
+
+https://www.pololu.com/product/2133
+  Current limiting
 
 Digitec: https://www.digitec.ch/de/s1/product/purecrea-drv8825-schrittmotor-treiber-stepper-driver-modul-entwicklungsboard-kit-25442322
 
 Other: https://techmaze.romman.store/product/99188778
 Schematics: https://docs.google.com/document/d/e/2PACX-1vTyiIMFXQ1cY5TMhOh_0EjdznmC3Nw6CplW7Xx8F61ogOaUpHVyuaXsqrWhIiuE8SjpbON_VzB-rk3R/pub
-
 
 Ohter: https://lastminuteengineers.com/drv8825-stepper-motor-driver-arduino-tutorial/
 
@@ -48,3 +48,14 @@ https://gitlab.com/robhamerling/micropython-drv8825
 
 https://how2electronics.com/control-stepper-motor-with-drv8825-raspberry-pi-pico/
 
+
+https://youtu.be/aVaOmtFGesI?si=sICGaq134060ogrd
+Running Stepper Motors with MicroPython and an ESP32 - Tutorial - Software Included!
+Clayton Darwin
+https://gitlab.com/duder1966/youtube-projects
+
+# Commissioning
+
+* Grove cable to filament board
+* Connection EN - GND
+* MS1, MS2, MS3: 1  (1/16 step)

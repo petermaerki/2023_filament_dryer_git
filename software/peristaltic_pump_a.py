@@ -20,7 +20,7 @@ def rotate_motor(delay):
 
 
 def loop():
-    if False:
+    if True:
         print("Spin snaily")
         rotate_motor(4000)
         utime.sleep_ms(steps_per_revolution)
@@ -33,9 +33,8 @@ def loop():
         tim.deinit()  # stop the timer
         utime.sleep(1)
 
-    if True:
         print("Spin motor quickly")
-        rotate_motor(200)
+        rotate_motor(1000)
         utime.sleep_ms(steps_per_revolution)
         tim.deinit()  # stop the timer
         utime.sleep(1)
