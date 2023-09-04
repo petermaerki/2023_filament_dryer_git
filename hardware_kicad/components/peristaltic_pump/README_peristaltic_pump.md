@@ -20,7 +20,7 @@ Logic voltage: 5V
 Input voltage: 12-30V
 Ports: Digital
 Interface: Direction, enable, speed
-Applicable module: A4988, DRV8825
+Applicable module: DRV8825 (not A4988)
 
 Brand Name: MINGYUANDINGYE
 

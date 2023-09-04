@@ -1,31 +1,26 @@
-# https://how2electronics.com/control-stepper-motor-with-drv8825-raspberry-pi-pico/
-from machine import Pin, Timer
-import utime
+from machine import Pin,
 import rp2
-from machine import Pin 
-
-# led_pin = Pin("GPIO9", Pin.OUT) # FILAMENT DRYER
-led_pin = Pin(25, Pin.OUT) # PICO
-# step_pin = Pin("GPIO2", Pin.OUT)
-
-out_pin = led_pin
 
 class DRV8825:
     """
+        https://how2electronics.com/control-stepper-motor-with-drv8825-raspberry-pi-pico/
+        
         This statemachine sends 'count' pulses.
-        Pulse length is 'duration_us'.
+        Pulse length is 'pulse_length_us'.
         The statemachine runs at 10MHz
         The pulse takes 10 PIO-instructions
-        Therefore 'duration_us' is in micorsecondes (10MHz/10)
+        Therefore 'pulse_length_us' is in micorsecondes (10MHz/10)
     """
-    def __init__(self):
+    def __init__(self, id: int, pin: Pin):
+        assert 0 <= id < 8
+
         @rp2.asm_pio(set_init=rp2.PIO.OUT_LOW)
         def pulses():
             # x=pulses: how many pulses to send
             pull()
             mov(x, osr)
             
-            # y=duration_us: duration of one period
+            # y=pulse_length_us: duration of one period
             # Store it in 'isr'. Later, we will assign it to y
             pull()
             mov(isr, osr)
@@ -53,15 +48,15 @@ class DRV8825:
 
 
         # state machine 0, running at 10MHz
-        self.sm = rp2.StateMachine(0, pulses, freq=10_000_000, set_base=out_pin)
+        self.sm = rp2.StateMachine(id, pulses, freq=10_000_000, set_base=pin)
         
-    def send_pulses(self, pulses:int, duration_us = 1_000_000):
+    def send_pulses(self, pulses:int, pulse_length_us = 1_000_000):
         # Empty fifo
         while self.sm.rx_fifo() > 0:
             self.sm.pull()
         self.sm.active(1)
         self.sm.put(pulses-1)
-        self.sm.put(duration_us)
+        self.sm.put(pulse_length_us)
         
     def wait(self, blocking=True) -> bool:
         """
@@ -77,11 +72,14 @@ class DRV8825:
         self.sm.get()
         return True
 
+def main():
+    d = DRV8825(id=0, pin=Pin(25, Pin.OUT))
+    d.send_pulses(3)
+    print("wait() before")
+    d.wait()
+    print("wait() after")
 
-x = DRV8825()
-x.send_pulses(3)
-print("sm.get() before")
-x.wait()
-print("sm.get() after")
+if __name__ == "__main__":
+    main()
 
 
