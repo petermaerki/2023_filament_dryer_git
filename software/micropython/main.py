@@ -12,7 +12,6 @@ from utils_time import Timebase
 from utils_measurement import Sensors, SensorSHT31, SensorDS18
 
 
-
 class Globals:
     def __init__(self):
         self.measure_interval_ms = 1000
@@ -21,23 +20,26 @@ class Globals:
 
 g = Globals()
 
+PIN_T_HEATING_1WIRE = Pin("GPIO15")
+PIN_HT_BOARD_SDA = Pin("GPIO26")
+PIN_HT_BOARD_SCL = Pin("GPIO27")
 
 sensors = Sensors(
     [
         SensorSHT31(
             "board",
-            i2c=I2C(id=1, scl=Pin("GPIO11"), sda=Pin("GPIO10"), freq=400000),
+            addr=0x45,
+            i2c=I2C(id=1, scl=PIN_HT_BOARD_SCL, sda=PIN_HT_BOARD_SDA, freq=400000),
         ),
         # SensorSHT31(
-        #     "ext",
+        #     "ext", addr=0x44,
         #     i2c=I2C(id=0, scl=Pin("GPIO5"), sda=Pin("GPIO4"), freq=400000),
         # ),
-        SensorDS18("board", Pin("GPIO0")),
-        SensorDS18("heating", Pin("GPIO8")),
+        SensorDS18("board", PIN_T_HEATING_1WIRE),
+        # SensorDS18("heating", Pin("GPIO8")),
         # SensorDS18("ext", Pin("GPIO2")),
     ]
 )
-
 
 
 def main_core2():
@@ -51,7 +53,6 @@ def main_core2():
     l = Logfile(timebase=tb)
     l.log(LogfileTags.SENSORS_HEADER, sensors.header)
 
-
     while True:
         sensors.measure()
 
@@ -63,6 +64,6 @@ def main_core2():
         tb.sleep()
 
 
-main_core2()
+# main_core2()
 
-# _thread.start_new_thread(main_core2, ())
+_thread.start_new_thread(main_core2, ())
