@@ -67,6 +67,16 @@ class SensorDS18(SensorBase):
         self.measurement_C.value = self._ds18.read_temp(self._sensors[0])
 
 
+class SensorFan(SensorBase):
+    def __init__(self, tag: str, i2c: I2C):
+        self._i2c = i2c
+        self.measurement_1 = Measurement(self, "_Fan", "Fan", "{value:d}")
+        SensorBase.__init__(self, tag=tag, measurements=[self.measurement_1])
+
+    def measure2(self):
+        self.measurement_1.value = self._i2c.value()
+
+
 class Sensors:
     def __init__(self, sensors):
         self._sensors = sensors

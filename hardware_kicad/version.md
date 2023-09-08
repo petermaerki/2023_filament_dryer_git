@@ -29,3 +29,14 @@ Final steps
 Manuelle Korrekturen in JLC
 USB3 nach hinten verschoben
 Um 90 Grad gedreht: U1, U4, U5, U6
+
+# 2023-09-08 v0.6
+
+Probleme:
+ * FET Q1-Q8: Pins falsch.
+ * FET Q1-Q8: Falsch: https://ngspice.sourceforge.io/docs/ngspice-manual.pdf
+ * FET Q1-Q8: Korrekt: https://datasheet.lcsc.com/lcsc/1810010522_Infineon-Technologies-IRLML6244TRPBF_C143946.pdf
+ * R1 4.7k: Zu gross, 2k ist ok.
+ * Warum hat JLCPCB Komponenten verdreht?
+ * Schrauben für Gehäuse: Sperrzone um Kurzschluss zu verhindern.
+
