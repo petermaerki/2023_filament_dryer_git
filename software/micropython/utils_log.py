@@ -26,9 +26,13 @@ class Logfile:
             self.f.write(line)
             self.f.write("\n")
 
-            if stdout:
-                if tag != LogfileTags.LOG_DEBUG:
-                    print(str(self.timebase.now_ms), tag, line)
+            write_to_stdout = stdout
+            if tag is LogfileTags.LOG_DEBUG:
+                write_to_stdout = False
+            elif tag is LogfileTags.LOG_ERROR:
+                write_to_stdout = True
+            if write_to_stdout:
+                print(str(self.timebase.now_ms), tag, line)
 
     def flush(self):
         self.f.flush()

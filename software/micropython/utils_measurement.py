@@ -2,8 +2,12 @@ import time
 
 import lib_sht31
 from utils_humidity import rel_to_dpt
-from onewire import OneWire
+from utils_log import Logfile, LogfileTags
+import onewire
 from ds18x20 import DS18X20
+
+
+logfile = None
 
 
 class Measurement:
@@ -20,6 +24,8 @@ class Measurement:
 
     @property
     def value_text(self):
+        if self._sensor._broken:
+            return "-"
         return self._format.format(value=self.value, unit=self._unit)
 
 
@@ -27,12 +33,22 @@ class SensorBase:
     def __init__(self, tag: str, measurements: list):
         self.tag = tag
         self._measurements = measurements
+        self._broken = False
 
     def measure1(self):
         pass
 
     def measure2(self):
-        raise Exception("Please override")
+        pass
+
+    def measure3(self):
+        pass
+
+    def io_error(self, ex):
+        self._broken = True
+        logfile.log(
+            LogfileTags.LOG_ERROR, f"{self.__class__.__name__} '{self.tag}': {ex}"
+        )
 
 
 ABSOLUTER_NULLPUNKT_C = -273.15
@@ -43,37 +59,27 @@ class SensorSHT31(SensorBase):
     def __init__(self, tag: str, addr: int, i2c: I2C):
         self.measurement_C = Measurement(self, "_C", "C", "{value:0.2f}")
         self.measurement_H = Measurement(self, "_rH", "H", "{value:0.1f}")
+        self.measurement_dew_C = Measurement(self, "_dew", "C", "{value:0.1f}")
         SensorBase.__init__(
-            self, tag=tag, measurements=[self.measurement_C, self.measurement_H]
+            self,
+            tag=tag,
+            measurements=[
+                self.measurement_C,
+                self.measurement_H,
+                self.measurement_dew_C,
+            ],
         )
-        self._sht31 = lib_sht31.SHT31(i2c, addr=addr)
+        try:
+            self._sht31 = lib_sht31.SHT31(i2c, addr=addr)
+        except Exception as ex:
+            self.io_error(ex=ex)
 
     def measure2(self):
-        self.measurement_C.value, self.measurement_H.value = self._sht31.get_temp_humi()
-
-
-# class SensorSHT31(SensorBase):
-#     def __init__(self, tag: str, addr: int, i2c: I2C):
-#         self.measurement_C = Measurement(self, "_C", "C", "{value:0.2f}")
-#         self.measurement_H = Measurement(self, "_rH", "H", "{value:0.1f}")
-#         self.measurement_dew_C = Measurement(self, "_dew", "C", "{value:0.1f}")
-#         SensorBase.__init__(
-#             self,
-#             tag=tag,
-#             measurements=[
-#                 self.measurement_C,
-#                 self.measurement_H,
-#                 self.measurement_dew_C,
-#             ],
-#         )
-#         self._sht31 = lib_sht31.SHT31(i2c, addr=addr)
-
-#     def measure2(self):
-#         C, rH = self._sht31.get_temp_humi()
-#         self.measurement_C.value = C
-#         self.measurement_H.value = rH
-#         dpt_K = rel_to_dpt(T=C - ABSOLUTER_NULLPUNKT_C, P=UMGEBUNGSDRUCK_P, RH=rH)
-#         self.measurement_dew_C = dpt_K + ABSOLUTER_NULLPUNKT_C
+        C, rH = self._sht31.get_temp_humi()
+        self.measurement_C.value = C
+        self.measurement_H.value = rH
+        dpt_K = rel_to_dpt(T=C - ABSOLUTER_NULLPUNKT_C, P=UMGEBUNGSDRUCK_P, RH=rH)
+        self.measurement_dew_C.value = dpt_K + ABSOLUTER_NULLPUNKT_C
 
 
 class SensorDS18(SensorBase):
@@ -81,15 +87,19 @@ class SensorDS18(SensorBase):
     MEASURE_MS = const(750)
 
     def __init__(self, tag: str, pin: Pin):
-        self._ds18 = DS18X20(OneWire(pin))
         self.measurement_C = Measurement(self, "_C", "C", "{value:0.2f}")
         SensorBase.__init__(self, tag=tag, measurements=[self.measurement_C])
-        self._sensors = self._ds18.scan()
+
+        try:
+            self._ds18 = DS18X20(onewire.OneWire(pin))
+            self._sensors = self._ds18.scan()
+        except Exception as ex:
+            self.io_error(ex=ex)
 
     def measure1(self):
         self._ds18.convert_temp()
 
-    def measure2(self):
+    def measure3(self):
         # time.sleep_ms(
         #     750 + 150
         # )  # mandatory pause to collect results, datasheet max 750 ms
@@ -106,8 +116,18 @@ class SensorFan(SensorBase):
         self.measurement_1.value = self._pin.value()
 
 
+class SensorHeater(SensorBase):
+    def __init__(self, tag: str, heater: "Heater"):
+        self._heater = heater
+        self.measurement_heater = Measurement(self, "_heater", "%", "{value:d}")
+        SensorBase.__init__(self, tag=tag, measurements=[self.measurement_heater])
+
+    def measure2(self):
+        self.measurement_heater.value = self._heater.power
+
+
 class Sensors:
-    def __init__(self, sensors):
+    def __init__(self, sensors: list):
         self._sensors = sensors
         self._measurements = []
         for s in self._sensors:
@@ -116,8 +136,22 @@ class Sensors:
 
     def measure(self):
         start_ms = time.ticks_ms()
+
         for s in self._sensors:
-            s.measure1()
+            if not s._broken:
+                try:
+                    s.measure1()
+                except Exception as ex:
+                    s.io_error(ex=ex)
+                    continue
+
+        for s in self._sensors:
+            if not s._broken:
+                try:
+                    s.measure2()
+                except Exception as ex:
+                    s.io_error(ex=ex)
+                    continue
 
         duration_ms = time.ticks_diff(time.ticks_ms(), start_ms)
         sleep_ms = SensorDS18.MEASURE_MS - duration_ms
@@ -125,7 +159,12 @@ class Sensors:
         time.sleep_ms(sleep_ms)
 
         for s in self._sensors:
-            s.measure2()
+            if not s._broken:
+                try:
+                    s.measure3()
+                except Exception as ex:
+                    s.io_error(ex=ex)
+                    continue
 
     @property
     def header(self) -> str:

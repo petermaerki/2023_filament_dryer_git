@@ -9,7 +9,8 @@ import neopixel
 
 from utils_log import Logfile, LogfileTags
 from utils_time import Timebase
-from utils_measurement import Sensors, SensorSHT31, SensorDS18, SensorFan
+from utils_measurement import SensorDS18, SensorFan, SensorHeater, SensorSHT31, Sensors
+import utils_measurement
 
 
 class Globals:
@@ -39,34 +40,45 @@ PIN_HT_GROVE_SCL = Pin("GPIO13")
 i2c_board = I2C(id=1, scl=PIN_HT_BOARD_SCL, sda=PIN_HT_BOARD_SDA, freq=400000)
 i2c_ext = I2C(id=0, scl=PIN_HT_GROVE_SCL, sda=PIN_HT_GROVE_SDA, freq=400000)
 
+tb = Timebase(interval_ms=g.measure_interval_ms)
+logfile = Logfile(timebase=tb)
+utils_measurement.logfile = logfile
+
+
+class Heater:
+    def __init__(self):
+        self.power = 0
+        self._neopixels = [
+            neopixel.NeoPixel(pin, 10)
+            for pin in (PIN_GPIO_NP_A, PIN_GPIO_NP_B, PIN_GPIO_NP_C)
+        ]
+        self.set(0)
+
+    def set(self, power: int):
+        assert 0 <= power < 256
+        self.power = power
+        v = (power, power, power)
+        for np in self._neopixels:
+            for i in range(np.n):
+                np[i] = v
+            np.write()
+
+
+heater = Heater()
+
 sensors = Sensors(
-    [
+    sensors=[
+        SensorHeater("heater", heater),
+        SensorFan("silicagel", PIN_GPIO_FAN_SILICAGEL),
+        SensorFan("ambient", PIN_GPIO_FAN_AMBIENT),
         SensorSHT31("silicagel", addr=0x44, i2c=i2c_board),
         SensorSHT31("board", addr=0x45, i2c=i2c_board),
         SensorSHT31("ext", addr=0x44, i2c=i2c_ext),
         SensorDS18("board", PIN_T_HEATING_1WIRE),
         SensorDS18("aux", PIN_T_AUX_1WIRE),
-        SensorFan("ambient", PIN_GPIO_FAN_AMBIENT),
-        SensorFan("silicagel", PIN_GPIO_FAN_SILICAGEL),
-    ]
+    ],
 )
 
-
-class Heater:
-    def __init__(self):
-        self._neopixels = [
-            neopixel.NeoPixel(pin, 10)
-            for pin in (PIN_GPIO_NP_A, PIN_GPIO_NP_B, PIN_GPIO_NP_C)
-        ]
-
-    def power(self, p: int):
-        assert 0 <= p < 256
-        for np in self._neopixels:
-            for i in range(np.n):
-                np[i] = (p, p, p)
-            np.write()
-
-heater = Heater(1)
 
 if False:
     # for pin in (PIN_GPIO_NP_A, ):
@@ -90,22 +102,20 @@ def main_core2():
         # The directory might already exit.
         pass
 
-    tb = Timebase(interval_ms=g.measure_interval_ms)
-    l = Logfile(timebase=tb)
-    l.log(LogfileTags.SENSORS_HEADER, sensors.header)
+    logfile.log(LogfileTags.SENSORS_HEADER, sensors.header)
 
     while True:
         sensors.measure()
 
-        l.log(LogfileTags.LOG_DEBUG, f"{tb.sleep_done_ms}, {tb.sleep_done_ms}")
-        l.log(LogfileTags.LOG_DEBUG, sensors.values)
-        l.log(LogfileTags.SENSORS_VALUES, sensors.values, stdout=g.stdout)
-        l.flush()
+        logfile.log(LogfileTags.LOG_DEBUG, f"{tb.sleep_done_ms}, {tb.sleep_done_ms}")
+        logfile.log(LogfileTags.LOG_DEBUG, sensors.values)
+        logfile.log(LogfileTags.SENSORS_VALUES, sensors.values, stdout=g.stdout)
+        logfile.flush()
 
         tb.sleep()
 
 
-if False:
+if True:
     main_core2()
 else:
     _thread.start_new_thread(main_core2, ())
@@ -133,5 +143,5 @@ def f_s():
     PIN_GPIO_FAN_SILICAGEL.toggle()
 
 
-def h(p: int):
-    heater.power(p)
+def h(power: int):
+    heater.set(power)
