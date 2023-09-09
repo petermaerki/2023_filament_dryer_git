@@ -1,6 +1,7 @@
 import time
 
 import lib_sht31
+from utils_humidity import rel_to_dpt
 from onewire import OneWire
 from ds18x20 import DS18X20
 
@@ -34,6 +35,10 @@ class SensorBase:
         raise Exception("Please override")
 
 
+ABSOLUTER_NULLPUNKT_C = -273.15
+UMGEBUNGSDRUCK_P = 100000.0
+
+
 class SensorSHT31(SensorBase):
     def __init__(self, tag: str, addr: int, i2c: I2C):
         self.measurement_C = Measurement(self, "_C", "C", "{value:0.2f}")
@@ -45,6 +50,30 @@ class SensorSHT31(SensorBase):
 
     def measure2(self):
         self.measurement_C.value, self.measurement_H.value = self._sht31.get_temp_humi()
+
+
+# class SensorSHT31(SensorBase):
+#     def __init__(self, tag: str, addr: int, i2c: I2C):
+#         self.measurement_C = Measurement(self, "_C", "C", "{value:0.2f}")
+#         self.measurement_H = Measurement(self, "_rH", "H", "{value:0.1f}")
+#         self.measurement_dew_C = Measurement(self, "_dew", "C", "{value:0.1f}")
+#         SensorBase.__init__(
+#             self,
+#             tag=tag,
+#             measurements=[
+#                 self.measurement_C,
+#                 self.measurement_H,
+#                 self.measurement_dew_C,
+#             ],
+#         )
+#         self._sht31 = lib_sht31.SHT31(i2c, addr=addr)
+
+#     def measure2(self):
+#         C, rH = self._sht31.get_temp_humi()
+#         self.measurement_C.value = C
+#         self.measurement_H.value = rH
+#         dpt_K = rel_to_dpt(T=C - ABSOLUTER_NULLPUNKT_C, P=UMGEBUNGSDRUCK_P, RH=rH)
+#         self.measurement_dew_C = dpt_K + ABSOLUTER_NULLPUNKT_C
 
 
 class SensorDS18(SensorBase):
@@ -68,13 +97,13 @@ class SensorDS18(SensorBase):
 
 
 class SensorFan(SensorBase):
-    def __init__(self, tag: str, i2c: I2C):
-        self._i2c = i2c
+    def __init__(self, tag: str, pin: Pin):
+        self._pin = pin
         self.measurement_1 = Measurement(self, "_Fan", "Fan", "{value:d}")
         SensorBase.__init__(self, tag=tag, measurements=[self.measurement_1])
 
     def measure2(self):
-        self.measurement_1.value = self._i2c.value()
+        self.measurement_1.value = self._pin.value()
 
 
 class Sensors:

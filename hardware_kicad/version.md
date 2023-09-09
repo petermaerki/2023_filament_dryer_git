@@ -39,4 +39,5 @@ Probleme:
  * R1 4.7k: Zu gross, 2k ist ok.
  * Warum hat JLCPCB Komponenten verdreht?
  * Schrauben für Gehäuse: Sperrzone um Kurzschluss zu verhindern.
+ * Schema: HT_SILICAGEL_SCA -> HT_SILICAGEL_SDA
 

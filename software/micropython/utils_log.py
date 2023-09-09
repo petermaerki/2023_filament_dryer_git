@@ -17,7 +17,7 @@ class Logfile:
         self.f = open("logs/logdata.txt", "w")
         self.lock = _thread.allocate_lock()
 
-    def log(self, tag: str, line: str):
+    def log(self, tag: str, line: str, stdout: bool = False):
         with self.lock:
             self.f.write(str(self.timebase.now_ms))
             self.f.write(" ")
@@ -26,8 +26,9 @@ class Logfile:
             self.f.write(line)
             self.f.write("\n")
 
-            if tag != LogfileTags.LOG_DEBUG:
-                print(str(self.timebase.now_ms), tag, line)
+            if stdout:
+                if tag != LogfileTags.LOG_DEBUG:
+                    print(str(self.timebase.now_ms), tag, line)
 
     def flush(self):
         self.f.flush()
