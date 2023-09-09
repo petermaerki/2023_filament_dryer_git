@@ -17,6 +17,7 @@ class Globals:
     def __init__(self):
         self.measure_interval_ms = 2000
         self.stdout = False
+        self.stop_thread = False
 
 
 g = Globals()
@@ -46,18 +47,39 @@ utils_measurement.logfile = logfile
 
 
 class Heater:
-    def __init__(self):
-        self.power = 0
+    def __init__(
+        self,
+    ):
+        self._power = 0
+        self._board_C = 0.0
+        self._board_max_C = 90.0
         self._neopixels = [
             neopixel.NeoPixel(pin, 10)
             for pin in (PIN_GPIO_NP_A, PIN_GPIO_NP_B, PIN_GPIO_NP_C)
         ]
-        self.set(0)
+        self.write_power()
 
-    def set(self, power: int):
-        assert 0 <= power < 256
-        self.power = power
+    @property
+    def power_controlled(self) -> int:
+        if self._board_C > self._board_max_C:
+            return 0
+        return self._power
+
+    def set_power(self, power: int):
+        self._power = max(0, min(200, power))
+
+        self.write_power()
+
+    def set_board_C(self, board_C: int):
+        self._board_C = board_C
+
+        self.write_power()
+
+    def write_power(self) -> None:
+        power = self.power_controlled
+
         v = (power, power, power)
+
         for np in self._neopixels:
             for i in range(np.n):
                 np[i] = v
@@ -65,6 +87,8 @@ class Heater:
 
 
 heater = Heater()
+
+ds18_board = SensorDS18("heater", PIN_T_HEATING_1WIRE)
 
 sensors = Sensors(
     sensors=[
@@ -74,25 +98,10 @@ sensors = Sensors(
         SensorSHT31("silicagel", addr=0x44, i2c=i2c_board),
         SensorSHT31("board", addr=0x45, i2c=i2c_board),
         SensorSHT31("ext", addr=0x44, i2c=i2c_ext),
-        SensorDS18("board", PIN_T_HEATING_1WIRE),
+        ds18_board,
         SensorDS18("aux", PIN_T_AUX_1WIRE),
     ],
 )
-
-
-if False:
-    # for pin in (PIN_GPIO_NP_A, ):
-    for pin, n in (
-        (PIN_GPIO_NP_BOARD, 2),
-        (PIN_GPIO_NP_A, 10),
-        (PIN_GPIO_NP_B, 10),
-        (PIN_GPIO_NP_C, 10),
-    ):
-        np = neopixel.NeoPixel(pin, n)
-        if True:
-            for j in range(n):
-                np[j] = (24, 12, 12)
-            np.write()
 
 
 def main_core2():
@@ -107,41 +116,47 @@ def main_core2():
     while True:
         sensors.measure()
 
+        heater.set_board_C(ds18_board.board_C)
+
         logfile.log(LogfileTags.LOG_DEBUG, f"{tb.sleep_done_ms}, {tb.sleep_done_ms}")
         logfile.log(LogfileTags.LOG_DEBUG, sensors.values)
         logfile.log(LogfileTags.SENSORS_VALUES, sensors.values, stdout=g.stdout)
-        logfile.flush()
+
+        if g.stop_thread:
+            logfile.log(LogfileTags.LOG_INFO, "Stopping", stdout=True)
+            logfile.flush()
+            return
 
         tb.sleep()
 
 
-if True:
+if False:
     main_core2()
 else:
     _thread.start_new_thread(main_core2, ())
 
-    if False:
-        PIN_GPIO_FAN_AMBIENT.off()
-        PIN_GPIO_FAN_SILICAGEL.off()
-        while True:
-            time.sleep(3.0)
-            PIN_GPIO_FAN_AMBIENT.toggle()
-            time.sleep(3.0)
-            PIN_GPIO_FAN_SILICAGEL.toggle()
+
+def s0():
+    g.stdout = False
 
 
-# Befehle
-def stdout(on):
-    g.stdout = on
+def s1():
+    g.stdout = True
 
 
-def f_a():
+def fa():
     PIN_GPIO_FAN_AMBIENT.toggle()
 
 
-def f_s():
+def fs():
     PIN_GPIO_FAN_SILICAGEL.toggle()
 
+def hd():
+    print(sensors.header)
 
 def h(power: int):
-    heater.set(power)
+    heater.set_power(power)
+
+
+def stop():
+    g.stop_thread = True

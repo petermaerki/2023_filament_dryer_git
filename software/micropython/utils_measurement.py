@@ -96,6 +96,11 @@ class SensorDS18(SensorBase):
         except Exception as ex:
             self.io_error(ex=ex)
 
+    @property
+    def board_C(self) -> None:
+        assert not self._broken
+        return self.measurement_C.value
+
     def measure1(self):
         self._ds18.convert_temp()
 
@@ -123,7 +128,8 @@ class SensorHeater(SensorBase):
         SensorBase.__init__(self, tag=tag, measurements=[self.measurement_heater])
 
     def measure2(self):
-        self.measurement_heater.value = self._heater.power
+        '''0 .. 100%'''
+        self.measurement_heater.value = self._heater.power_controlled * 100.0 / 255.0
 
 
 class Sensors:
@@ -168,8 +174,8 @@ class Sensors:
 
     @property
     def header(self) -> str:
-        return " ".join([m.tag for m in self._measurements])
+        return "\t".join([m.tag for m in self._measurements])
 
     @property
     def values(self) -> str:
-        return " ".join([m.value_text for m in self._measurements])
+        return "\t".join([m.value_text for m in self._measurements])

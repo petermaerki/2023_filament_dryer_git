@@ -20,9 +20,9 @@ class Logfile:
     def log(self, tag: str, line: str, stdout: bool = False):
         with self.lock:
             self.f.write(str(self.timebase.now_ms))
-            self.f.write(" ")
+            self.f.write("\t")
             self.f.write(tag)
-            self.f.write(" ")
+            self.f.write("\t")
             self.f.write(line)
             self.f.write("\n")
 
@@ -32,7 +32,7 @@ class Logfile:
             elif tag is LogfileTags.LOG_ERROR:
                 write_to_stdout = True
             if write_to_stdout:
-                print(str(self.timebase.now_ms), tag, line)
+                print("\t".join(str(self.timebase.now_ms), tag, line))
 
     def flush(self):
         self.f.flush()
