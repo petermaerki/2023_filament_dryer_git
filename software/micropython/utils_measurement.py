@@ -1,11 +1,12 @@
 import time
 
 import lib_sht31
-from utils_humidity import rel_to_dpt
-from utils_log import Logfile, LogfileTags
 import onewire
 from ds18x20 import DS18X20
 
+from utils_humidity import rel_to_dpt
+from utils_log import Logfile, LogfileTags
+from utils_constants import LOGFILE_DELIMITER
 
 logfile = None
 
@@ -26,7 +27,10 @@ class Measurement:
     def value_text(self):
         if self._sensor._broken:
             return "-"
-        return self._format.format(value=self.value, unit=self._unit)
+        try:
+            return self._format.format(value=self.value, unit=self._unit)
+        except Exception as ex:
+            print(f"ERROR: {self.tag}: {ex}")
 
 
 class SensorBase:
@@ -124,11 +128,11 @@ class SensorFan(SensorBase):
 class SensorHeater(SensorBase):
     def __init__(self, tag: str, heater: "Heater"):
         self._heater = heater
-        self.measurement_heater = Measurement(self, "_heater", "%", "{value:d}")
+        self.measurement_heater = Measurement(self, "_heater", "%", "{value:0.0f}")
         SensorBase.__init__(self, tag=tag, measurements=[self.measurement_heater])
 
     def measure2(self):
-        '''0 .. 100%'''
+        """0 .. 100%"""
         self.measurement_heater.value = self._heater.power_controlled * 100.0 / 255.0
 
 
@@ -161,8 +165,8 @@ class Sensors:
 
         duration_ms = time.ticks_diff(time.ticks_ms(), start_ms)
         sleep_ms = SensorDS18.MEASURE_MS - duration_ms
-        assert sleep_ms > 0
-        time.sleep_ms(sleep_ms)
+        if sleep_ms > 0:
+            time.sleep_ms(sleep_ms)
 
         for s in self._sensors:
             if not s._broken:
@@ -174,8 +178,8 @@ class Sensors:
 
     @property
     def header(self) -> str:
-        return "\t".join([m.tag for m in self._measurements])
+        return LOGFILE_DELIMITER.join([m.tag for m in self._measurements])
 
     @property
     def values(self) -> str:
-        return "\t".join([m.value_text for m in self._measurements])
+        return LOGFILE_DELIMITER.join([m.value_text for m in self._measurements])

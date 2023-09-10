@@ -1,0 +1,2 @@
+DIRECTORY_LOGS = "/logs"
+LOGFILE_DELIMITER = "\t"
