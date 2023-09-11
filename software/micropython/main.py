@@ -196,12 +196,23 @@ class Statemachine:
         self._dryfan_next_ms = tb.now_ms
 
     def _state_dryfan(self) -> None:
-        if self._dryfan_next_ms >= tb.now_ms:
+        if tb.now_ms >= self._dryfan_next_ms:
+            logfile.log(
+                LogfileTags.LOG_INFO,
+                f"len={len(self._dryfan_list_dew_C)}, append({sht31_board.measurement_dew_C.value})",
+                stdout=True,
+            )
+            self._dryfan_next_ms += config.SM_DRYFAN_NEXT_MS
             self._dryfan_list_dew_C.append(sht31_board.measurement_dew_C.value)
 
             if len(self._dryfan_list_dew_C) > config.SM_DRYFAN_ELEMENTS:
                 reduction_dew_C = (
                     self._dryfan_list_dew_C[-1] - self._dryfan_list_dew_C[0]
+                )
+                logfile.log(
+                    LogfileTags.LOG_INFO,
+                    f"reduction_dew_C={reduction_dew_C:0.1f}",
+                    stdout=True,
                 )
                 self._dryfan_list_dew_C.pop()
                 if reduction_dew_C < config.SM_DRYFAN_DIFF_DEW_C:
@@ -320,3 +331,19 @@ def rf():  # Reformat
     os.VfsLfs2.mkfs(flash)
     os.mount(flash, "/")
     machine.soft_reset()
+
+
+def smp():
+    print(sm.state_name)
+
+
+def sm1():
+    sm._switch(sm._state_regenerate, "Manual intervention")
+
+
+def sm2():
+    sm._switch(sm._state_drywait, "Manual intervention")
+
+
+def sm3():
+    sm._switch(sm._state_dryfan, "Manual intervention")
