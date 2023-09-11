@@ -41,3 +41,5 @@ Probleme:
  * Schrauben für Gehäuse: Sperrzone um Kurzschluss zu verhindern.
  * Schema: HT_SILICAGEL_SCA -> HT_SILICAGEL_SDA
 
+ * Konsistente Namensgebung: SILICAGEL, FILAMENT, AMBIENT. Falsch ist BOARD, EXTs
+

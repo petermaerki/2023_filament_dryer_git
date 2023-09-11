@@ -1,0 +1,18 @@
+from utils_constants import DURATION_MIN_MS
+
+MEASURE_INTERVAL_MS = const(2000)
+
+DURATION_REGENERATE_MS = 30 * DURATION_MIN_MS
+DURATION_DRY_MS = 30 * DURATION_MIN_MS
+
+HEATER_BOARD_MAX = 110.0
+
+# Statemachine
+SM_REGENERATE_DIFF_DEW_C = const(3.0)
+
+SM_DRYWAIT_DIFF_DEW_C = const(3.0)
+
+SM_DRYFAN_NEXT_MS = const(2_000) # Interval of elements in list
+SM_DRYFAN_ELEMENTS = const(30) # 60s = 30 * 2_000ms
+SM_DRYFAN_DIFF_DEW_C = 5.0
+SM_DRYFAN_DEW_SET_C = -100.0
