@@ -97,9 +97,9 @@ class Heater:
 
 heater = Heater()
 
-ds18_board = SensorDS18("heater", PIN_T_HEATING_1WIRE)
+ds18_heater = SensorDS18("heater", PIN_T_HEATING_1WIRE)
 sht31_silicagel = SensorSHT31("silicagel", addr=0x44, i2c=i2c_board)
-sht31_board = SensorSHT31("board", addr=0x45, i2c=i2c_board)
+sht31_filament = SensorSHT31("board", addr=0x45, i2c=i2c_board)
 sht31_ext = SensorSHT31("ext", addr=0x44, i2c=i2c_ext)
 
 sensors = Sensors(
@@ -108,9 +108,9 @@ sensors = Sensors(
         SensorFan("silicagel", PIN_GPIO_FAN_SILICAGEL),
         SensorFan("ambient", PIN_GPIO_FAN_AMBIENT),
         sht31_silicagel,
-        sht31_board,
+        sht31_filament,
         sht31_ext,
-        ds18_board,
+        ds18_heater,
         SensorDS18("aux", PIN_T_AUX_1WIRE),
     ],
 )
@@ -125,6 +125,7 @@ class Statemachine:
         self.state_name = "none"
         self._start_ms = 0
 
+        self._regenrate_last_fanon_ms = 0
         self._dryfan_list_dew_C = []
         self._dryfan_next_ms = 0
 
@@ -154,6 +155,7 @@ class Statemachine:
         f_entry()
 
     def _entry_regenerate(self) -> None:
+        self._regenrate_last_fanon_ms = 0
         PIN_GPIO_FAN_AMBIENT.off()
         PIN_GPIO_FAN_SILICAGEL.off()
         heater.set_power(255)
@@ -166,10 +168,18 @@ class Statemachine:
         PIN_GPIO_FAN_AMBIENT.value(fan_on)
 
         if fan_on:
+            self._regenrate_last_fanon_ms = tb.now_ms
             return
 
-        if self.duration_ms > config.DURATION_REGENERATE_MS:
-            self._switch(self._state_drywait, "timebox over and fan off")
+        if ds18_heater.board_C < config.SM_REGENERATE_HOT_C:
+            self._regenrate_last_fanon_ms = tb.now_ms
+            return
+
+        duration_fan_off_ms = tb.now_ms - self._regenrate_last_fanon_ms
+        assert duration_fan_off_ms >= 0
+        if duration_fan_off_ms > config.SM_REGENERATE_NOFAN_MS:
+            why = f"duration_fan_off_ms {duration_fan_off_ms}ms > SM_REGENERATE_NOFAN_MS {config.SM_REGENERATE_NOFAN_MS}ms"
+            self._switch(self._state_drywait, why)
 
     def _entry_drywait(self) -> None:
         PIN_GPIO_FAN_SILICAGEL.off()
@@ -178,7 +188,7 @@ class Statemachine:
 
     def _state_drywait(self) -> None:
         diff_dew_C = (
-            sht31_board.measurement_dew_C.value
+            sht31_filament.measurement_dew_C.value
             - sht31_silicagel.measurement_dew_C.value
         )
         fan_on = diff_dew_C > config.SM_DRYWAIT_DIFF_DEW_C
@@ -199,11 +209,11 @@ class Statemachine:
         if tb.now_ms >= self._dryfan_next_ms:
             logfile.log(
                 LogfileTags.LOG_INFO,
-                f"len={len(self._dryfan_list_dew_C)}, append({sht31_board.measurement_dew_C.value})",
+                f"len={len(self._dryfan_list_dew_C)}, append({sht31_filament.measurement_dew_C.value})",
                 stdout=True,
             )
             self._dryfan_next_ms += config.SM_DRYFAN_NEXT_MS
-            self._dryfan_list_dew_C.append(sht31_board.measurement_dew_C.value)
+            self._dryfan_list_dew_C.append(sht31_filament.measurement_dew_C.value)
 
             if len(self._dryfan_list_dew_C) > config.SM_DRYFAN_ELEMENTS:
                 reduction_dew_C = (
@@ -216,11 +226,19 @@ class Statemachine:
                 )
                 self._dryfan_list_dew_C.pop()
                 if reduction_dew_C < config.SM_DRYFAN_DIFF_DEW_C:
-                    why = f"reduction_dew_C {reduction_dew_C:0.1f}C < SM_DRYFAN_DIFF_DEW_C {config.SM_DRYFAN_DIFF_DEW_C:0.1f}C AND sht31_board.measurement_dew_C {sht31_board.measurement_dew_C.value:0.1f}C > SM_DRYFAN_DEW_SET_C {config.SM_DRYFAN_DEW_SET_C:0.1f}C"
-                    if sht31_board.measurement_dew_C.value > config.SM_DRYFAN_DEW_SET_C:
+                    why = f"reduction_dew_C {reduction_dew_C:0.1f}C < SM_DRYFAN_DIFF_DEW_C {config.SM_DRYFAN_DIFF_DEW_C:0.1f}C AND sht31_board.measurement_dew_C {sht31_filament.measurement_dew_C.value:0.1f}C > SM_DRYFAN_DEW_SET_C {config.SM_DRYFAN_DEW_SET_C:0.1f}C"
+                    if (
+                        sht31_filament.measurement_dew_C.value
+                        > config.SM_DRYFAN_DEW_SET_C
+                    ):
                         self._switch(self._state_regenerate, why)
                         return
-                    self._switch(self._state_drywait, why.replace("C > SM_DRYFAN_DEW_SET_C", "C <= SM_DRYFAN_DEW_SET_C"))
+                    self._switch(
+                        self._state_drywait,
+                        why.replace(
+                            "C > SM_DRYFAN_DEW_SET_C", "C <= SM_DRYFAN_DEW_SET_C"
+                        ),
+                    )
 
 
 sm = Statemachine()
@@ -235,7 +253,7 @@ def main_core2():
         sensors.measure()
 
         sm.state()
-        heater.set_board_C(board_C=ds18_board.board_C)
+        heater.set_board_C(board_C=ds18_heater.board_C)
 
         # logfile.log(LogfileTags.LOG_DEBUG, f"{tb.sleep_done_ms}, {tb.sleep_done_ms}")
         logfile.log(LogfileTags.SENSORS_VALUES, sensors.values, stdout=g.stdout)
