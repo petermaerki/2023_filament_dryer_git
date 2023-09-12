@@ -207,7 +207,7 @@ class Statemachine:
 
             if len(self._dryfan_list_dew_C) > config.SM_DRYFAN_ELEMENTS:
                 reduction_dew_C = (
-                    self._dryfan_list_dew_C[-1] - self._dryfan_list_dew_C[0]
+                    self._dryfan_list_dew_C[0] - self._dryfan_list_dew_C[-1]
                 )
                 logfile.log(
                     LogfileTags.LOG_INFO,
@@ -216,11 +216,11 @@ class Statemachine:
                 )
                 self._dryfan_list_dew_C.pop()
                 if reduction_dew_C < config.SM_DRYFAN_DIFF_DEW_C:
-                    why = f"reduction_dew_C {reduction_dew_C:0.1f}C > SM_DRYFAN_DEW_SET_C {config.SM_DRYFAN_DEW_SET_C:0.1f}C"
+                    why = f"reduction_dew_C {reduction_dew_C:0.1f}C < SM_DRYFAN_DIFF_DEW_C {config.SM_DRYFAN_DIFF_DEW_C:0.1f}C AND sht31_board.measurement_dew_C {sht31_board.measurement_dew_C.value:0.1f}C > SM_DRYFAN_DEW_SET_C {config.SM_DRYFAN_DEW_SET_C:0.1f}C"
                     if sht31_board.measurement_dew_C.value > config.SM_DRYFAN_DEW_SET_C:
                         self._switch(self._state_regenerate, why)
                         return
-                    self._switch(self._state_drywait, why.replace("C > SM", "C <= SM"))
+                    self._switch(self._state_drywait, why.replace("C > SM_DRYFAN_DEW_SET_C", "C <= SM_DRYFAN_DEW_SET_C"))
 
 
 sm = Statemachine()

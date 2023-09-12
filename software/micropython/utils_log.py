@@ -65,6 +65,7 @@ class Logfile:
         with self.lock:
             self.f.write(full_line)
             self.f.write("\n")
+            self.f.flush()
 
     def flush(self):
         with self.lock:
