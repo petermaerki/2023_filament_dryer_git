@@ -214,7 +214,7 @@ if __name__ == "__main__":
     DIRECTORY_EXPERIMENTS = (
         DIRECTORY_OF_THIS_FILE.parent / "dryer_experiments" / "2023-09-11_trials"
     )
-    if False:
+    if True:
         for filename in DIRECTORY_EXPERIMENTS.glob("*.txt"):
             print(filename)
             create_diagram(filename)
