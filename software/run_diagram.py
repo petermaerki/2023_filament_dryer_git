@@ -1,5 +1,6 @@
 import csv
 from dataclasses import dataclass
+from datetime import datetime
 import re
 import pathlib
 from typing import List, Tuple
@@ -103,13 +104,9 @@ class LogReader:
 def create_diagram(filename: pathlib.Path):
     lr = LogReader(filename)
 
-    fig, axs = plt.subplots(2)
-    # fig.suptitle("Vertically stacked subplots")
-
-    ax_top, ax_power = axs
-
-    # fig, axs = plt.subplots(2)
-    # ax2 = ax.twinx()
+    # One diagram, one y axis
+    fig, ax_temperature = plt.subplots()
+    ax_power = ax_temperature
 
     def get_color(label: str) -> str:
         # https://matplotlib.org/stable/gallery/color/named_colors.html
@@ -125,40 +122,50 @@ def create_diagram(filename: pathlib.Path):
             return "black"
         return "black"
 
-    def get_line_width_and_style(label: str) -> Tuple[int, str]:
-        if label.endswith("-rH"):
-            return 1, "dotted"
-        if label.endswith("-C"):
-            return 1, "solid"
-        if label.endswith("-dew"):
-            return 2, "solid"
+    def get_line_width_and_style(label: str) -> Tuple[float, int, str]:
+        if label.endswith("-humidity-rH"):
+            return 0.95, 1, "dotted"
+        if label.endswith("-temperature-C"):
+            return 0.95, 1, "solid"
+        if label.endswith("-dew-C"):
+            return 0.5, 3, "solid"
         if label.endswith("-Fan") or label.endswith("-Heater"):
-            return 1, "solid"
-        return 5, "dotted"
+            return 0.95, 1, "solid"
+        return 0.95, 5, "dotted"
 
     def add_top(label: str):
-        linewidth, linestyle = get_line_width_and_style(label)
-        ax_top.plot(
+        alpha, linewidth, linestyle = get_line_width_and_style(label)
+        ax_temperature.plot(
             lr.x_h,
             lr.get_col_float(label),
             linestyle=linestyle,
             linewidth=linewidth,
             color=get_color(label),
-            alpha=0.95,
+            alpha=alpha,
             label=label,
         )
 
-    def add_power(label: str, factor: float = 1.0):
+    def add_power(label: str, offset=0.0, scale=1.0):
         # linewidth, linestyle = get_line_width_and_style(label)
         ax_power.plot(
             lr.x_h,
-            [v * factor for v in lr.get_col_float(label)],
+            [v * scale + offset for v in lr.get_col_float(label)],
             linestyle="solid",
             linewidth=1,
             color=get_color(label),
             alpha=0.95,
             label=label,
         )
+
+    # Add data
+    power_offset = 110.0
+    power_size = 3.0
+    power_increment = 5.0
+    add_power("ambient-Fan-1", offset=power_offset, scale=power_size)
+    power_offset += power_increment
+    add_power("filament-Fan-1", offset=power_offset, scale=power_size)
+    power_offset += power_increment
+    add_power("heater-Heater-1", offset=power_offset, scale=power_size / 127.0)
 
     add_top("silicagel-temperature-C")
     add_top("silicagel-humidity-rH")
@@ -171,52 +178,43 @@ def create_diagram(filename: pathlib.Path):
     add_top("ambient-dew-C")
     add_top("heater-temperature-C")
     add_top("aux-temperature-C")
-    add_power("ambient-Fan-1")
-    add_power("filament-Fan-1")
-    add_power("heater-Heater-1", factor=1.0 / 127.0)
 
-    ax_top.set(xlabel="time (h)", ylabel="Temperature C / rH")
-
-    ax_top.grid()
-    ax_power.set(ylabel="Power")
-    # ax2.yaxis.set_major_formatter(mtick.FormatStrFormatter("%.2e"))
-    ax_power.ticklabel_format(useOffset=False)
-
-    ax_top.legend(bbox_to_anchor=(1.05, 1.0), loc="upper left")
-    ax_power.legend(bbox_to_anchor=(1.05, 1.0), loc="upper left")
+    # Plot
+    ax_temperature.set(xlabel="time (h)", ylabel="Temperature C / rH")
+    ax_temperature.grid()
+    ax_temperature.legend(bbox_to_anchor=(1.05, 1.0), loc="upper left")
     plt.tight_layout()
 
-    # plt.savefig(
-    #     "C:/data/peters_daten\haus_13_zelglistrasse_49/heizung/heizung_peter_schaer_siedlung/heizung_puenterswis_simulation_git/pictures/energiereserve_"
-    #     + self.speicher.label
-    #     + ".png", **SAVEFIG_KWARGS
-    # )
-
-    if True:
-        my_dpi = 600
-        fig.set_dpi(my_dpi)
-        fig.set_figheight(4000 / my_dpi)
-        fig.set_figwidth(7000 / my_dpi)
+    if False:
+        plt.show()
+    else:
+        # my_dpi = 600
+        # my_dpi = fig.dpi
+        # # my_dpi = 'figure'
+        # fig.set_dpi(my_dpi)
+        # fig.set_figheight(4000 / my_dpi)
+        # fig.set_figwidth(7000 / my_dpi)
 
         plt.savefig(
             filename.with_suffix(".svg"),
             # transparent=True,
-            dpi=my_dpi,
+            # dpi=my_dpi,
+            # https://github.com/matplotlib/matplotlib/blob/4723dabd7885080a326e8ed65a15ce49ab5d4d31/lib/matplotlib/backends/backend_svg.py#L325-L340
+            #  metadata={'Date': datetime(year=2000, month=1, day=1)},
+            #  metadata={'Date': '2000-01-01'},
         )
-
-    if False:
-        plt.show()
 
     plt.close()
 
 
-if __name__ == "__main__":
+def main():
     DIRECTORY_EXPERIMENTS = (
         DIRECTORY_OF_THIS_FILE.parent / "dryer_experiments" / "2023-09-11_trials"
     )
-    if True:
-        for filename in DIRECTORY_EXPERIMENTS.glob("*.txt"):
-            print(filename)
-            create_diagram(filename)
-    else:
-        create_diagram(DIRECTORY_EXPERIMENTS / "2023-09-11b_logdata.txt")
+    for filename in sorted(DIRECTORY_EXPERIMENTS.glob("*.txt"), reverse=True):
+        print(filename)
+        create_diagram(filename)
+        return
+
+if __name__ == "__main__":
+    main()

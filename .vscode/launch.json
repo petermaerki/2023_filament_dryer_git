@@ -14,6 +14,15 @@
       "justMyCode": false
     },
     {
+      "name": "run_diagram",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/software/run_diagram.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}/software",
+      "justMyCode": false
+    },
+    {
       "name": "doctext",
       "type": "python",
       "request": "launch",
