@@ -213,11 +213,11 @@ class Statemachine:
                 stdout=True,
             )
             self._dryfan_next_ms += config.SM_DRYFAN_NEXT_MS
-            self._dryfan_list_dew_C.append(sht31_filament.measurement_dew_C.value)
+            self._dryfan_list_dew_C.insert(0, sht31_filament.measurement_dew_C.value)
 
             if len(self._dryfan_list_dew_C) > config.SM_DRYFAN_ELEMENTS:
                 reduction_dew_C = (
-                    self._dryfan_list_dew_C[0] - self._dryfan_list_dew_C[-1]
+                    self._dryfan_list_dew_C[-1] - self._dryfan_list_dew_C[0]
                 )
                 logfile.log(
                     LogfileTags.LOG_INFO,
@@ -259,7 +259,7 @@ def main_core2():
         logfile.log(LogfileTags.SENSORS_VALUES, sensors.values, stdout=g.stdout)
 
         if g.stop_thread:
-            logfile.log(LogfileTags.LOG_INFO, "Stopping", stdout=True)
+            logfile.log(LogfileTags.LOG_INFO, "Stopped", stdout=True)
             logfile.flush()
             return
 

@@ -214,7 +214,7 @@ def main():
     for filename in sorted(DIRECTORY_EXPERIMENTS.glob("*.txt"), reverse=True):
         print(filename)
         create_diagram(filename)
-        return
+        # return
 
 if __name__ == "__main__":
     main()
