@@ -8906,7 +8906,7 @@
         fff8e79f-1b8e-4b38-bef1-e004f7e7c26a
       )
     )
-    (model "${KIPRJMOD}/Parts/drayer_print_3d/dryer_print3d.step"
+    (model "${KIPRJMOD}/Parts/dryer_print_3d/dryer_print3d.step"
       (opacity 0.5300)      (offset (xyz 0 0 0))
       (scale (xyz 1 1 1))
       (rotate (xyz 0 180 0))
