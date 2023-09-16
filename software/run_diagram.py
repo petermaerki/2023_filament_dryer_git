@@ -145,6 +145,19 @@ def create_diagram(filename: pathlib.Path):
             label=label,
         )
 
+    def reset_svg_date(filename: pathlib.Path) -> None:
+        # Example: <dc:date>2023-09-14T07:03:29.061481</dc:date>
+        tag_begin = "<dc:date>"
+        tag_end = "</dc:date>"
+        svg = filename.read_text()
+        pos1 = svg.find(tag_begin)
+        if pos1 < 0:
+            return
+        pos2 = svg.find(tag_end, pos1)
+        if pos2 < 0:
+            return
+        filename.write_text(svg[:pos1] + svg[pos2 + len(tag_end) :])
+
     def add_power(label: str, offset=0.0, scale=1.0):
         # linewidth, linestyle = get_line_width_and_style(label)
         ax_power.plot(
@@ -195,14 +208,17 @@ def create_diagram(filename: pathlib.Path):
         # fig.set_figheight(4000 / my_dpi)
         # fig.set_figwidth(7000 / my_dpi)
 
+        filename_plt = filename.with_suffix(".svg")
+
         plt.savefig(
-            filename.with_suffix(".svg"),
+            filename_plt,
             # transparent=True,
             # dpi=my_dpi,
             # https://github.com/matplotlib/matplotlib/blob/4723dabd7885080a326e8ed65a15ce49ab5d4d31/lib/matplotlib/backends/backend_svg.py#L325-L340
             #  metadata={'Date': datetime(year=2000, month=1, day=1)},
             #  metadata={'Date': '2000-01-01'},
         )
+        reset_svg_date(filename=filename_plt)
 
     plt.close()
 
@@ -215,6 +231,7 @@ def main():
         print(filename)
         create_diagram(filename)
         # return
+
 
 if __name__ == "__main__":
     main()
