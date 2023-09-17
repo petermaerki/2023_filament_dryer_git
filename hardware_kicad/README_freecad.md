@@ -8,16 +8,16 @@ In Python Console:
 
 ```python
 objs=[]
-objs.append(FreeCAD.getDocument("_0230812a_filament_dryer_silicagel").getObject("Sketch005"))
+objs.append(FreeCAD.getDocument("_0230917p_filament_dryer_silicagel").getObject("Body002"))
 import importDXF
-importDXF.export(objs, u"/tmp/pcb.dxf")
+importDXF.export(objs, u"/tmp/dryer_board.dxf")
 
 del objs
 ```
 
 ### KiCad
 
-* Menu `File -> Import Graphics`
+* KiCad PCB: Menu `File -> Import Graphics`
   * `/tmp/dryer_board.dxf`
   * At `0`, `0`
   * Layer `Edge.Cuts`
@@ -36,7 +36,7 @@ In Python Console:
 
 ```python
 objs=[]
-objs.append(FreeCAD.getDocument("_0230812a_filament_dryer_silicagel").getObject("Body"))
+objs.append(FreeCAD.getDocument("_0230917p_filament_dryer_silicagel").getObject("Body"))
 import importDXF
 importDXF.export(objs,u"/tmp/dryer_print3d.dxf")
 
@@ -72,7 +72,7 @@ In Python Console:
 
 ```python
 objs=[]
-objs.append(FreeCAD.getDocument("_0230812a_filament_dryer_silicagel").getObject("Body"))
+objs.append(FreeCAD.getDocument("_0230917p_filament_dryer_silicagel").getObject("Body"))
 import ImportGui
 ImportGui.export(objs,u"/tmp/dryer_print3d.step")
 
