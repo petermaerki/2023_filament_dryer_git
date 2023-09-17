@@ -154,6 +154,7 @@ class Statemachine:
         f_entry = getattr(self, new_entry_name)
         f_entry()
 
+    # State: REGENERATE
     def _entry_regenerate(self) -> None:
         self._regenrate_last_fanon_ms = 0
         PIN_GPIO_FAN_AMBIENT.off()
@@ -171,7 +172,7 @@ class Statemachine:
             self._regenrate_last_fanon_ms = tb.now_ms
             return
 
-        if ds18_heater.board_C < config.SM_REGENERATE_HOT_C:
+        if ds18_heater.heater_C < config.SM_REGENERATE_HOT_C:
             self._regenrate_last_fanon_ms = tb.now_ms
             return
 
@@ -179,8 +180,23 @@ class Statemachine:
         assert duration_fan_off_ms >= 0
         if duration_fan_off_ms > config.SM_REGENERATE_NOFAN_MS:
             why = f"duration_fan_off_ms {duration_fan_off_ms}ms > SM_REGENERATE_NOFAN_MS {config.SM_REGENERATE_NOFAN_MS}ms"
-            self._switch(self._state_drywait, why)
+            self._switch(self._state_cooldown, why)
 
+    # State: COOL DOWN
+    def _entry_cooldown(self) -> None:
+        PIN_GPIO_FAN_SILICAGEL.off()
+        PIN_GPIO_FAN_AMBIENT.off()
+        heater.set_power(0)
+
+    def _state_cooldown(self) -> None:
+        heater_C = ds18_heater.heater_C
+        if heater_C < config.SM_COOLDOWN_TEMPERATURE_HEATER_C:
+            self._switch(
+                self._state_dryfan,
+                f"heater_C {heater_C:0.1f}C < SM_COOLDOWN_TEMPERATURE_HEATER_C {config.SM_COOLDOWN_TEMPERATURE_HEATER_C:0.1f}C",
+            )
+
+    # State: DRY FAN
     def _entry_dryfan(self) -> None:
         PIN_GPIO_FAN_SILICAGEL.on()
         PIN_GPIO_FAN_AMBIENT.off()
@@ -223,6 +239,7 @@ class Statemachine:
                         ),
                     )
 
+    # State: DRY WAIT
     def _entry_drywait(self) -> None:
         PIN_GPIO_FAN_SILICAGEL.off()
         PIN_GPIO_FAN_AMBIENT.off()
@@ -254,7 +271,7 @@ def main_core2():
         sensors.measure()
 
         sm.state()
-        heater.set_board_C(board_C=ds18_heater.board_C)
+        heater.set_board_C(board_C=ds18_heater.heater_C)
 
         # logfile.log(LogfileTags.LOG_DEBUG, f"{tb.sleep_done_ms}, {tb.sleep_done_ms}")
         logfile.log(LogfileTags.SENSORS_VALUES, sensors.values, stdout=g.stdout)

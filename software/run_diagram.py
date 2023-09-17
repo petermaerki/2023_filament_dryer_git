@@ -200,6 +200,7 @@ def create_diagram(filename: pathlib.Path):
 
     if False:
         plt.show()
+        raise Exception("Done")
     else:
         # my_dpi = 600
         # my_dpi = fig.dpi

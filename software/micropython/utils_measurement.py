@@ -88,7 +88,7 @@ class SensorSHT31(SensorBase):
 
 class SensorDS18(SensorBase):
     # DS18x: mandatory pause to collect results, datasheet max 750 ms
-    MEASURE_MS = const(750)
+    MEASURE_MS = const(750 + 150)
 
     def __init__(self, tag: str, pin: Pin):
         self.measurement_C = Measurement(self, "_C", "C", "{value:0.2f}")
@@ -101,7 +101,7 @@ class SensorDS18(SensorBase):
             self.io_error(ex=ex)
 
     @property
-    def board_C(self) -> None:
+    def heater_C(self) -> None:
         assert not self._broken
         return self.measurement_C.value
 
