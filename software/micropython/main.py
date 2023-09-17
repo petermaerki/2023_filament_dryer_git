@@ -181,23 +181,6 @@ class Statemachine:
             why = f"duration_fan_off_ms {duration_fan_off_ms}ms > SM_REGENERATE_NOFAN_MS {config.SM_REGENERATE_NOFAN_MS}ms"
             self._switch(self._state_drywait, why)
 
-    def _entry_drywait(self) -> None:
-        PIN_GPIO_FAN_SILICAGEL.off()
-        PIN_GPIO_FAN_AMBIENT.off()
-        heater.set_power(0)
-
-    def _state_drywait(self) -> None:
-        diff_dew_C = (
-            sht31_filament.measurement_dew_C.value
-            - sht31_silicagel.measurement_dew_C.value
-        )
-        fan_on = diff_dew_C > config.SM_DRYWAIT_DIFF_DEW_C
-
-        if fan_on:
-            self._switch(
-                self._state_dryfan, f"drw difference reached {diff_dew_C:0.1f}C"
-            )
-
     def _entry_dryfan(self) -> None:
         PIN_GPIO_FAN_SILICAGEL.on()
         PIN_GPIO_FAN_AMBIENT.off()
@@ -239,6 +222,24 @@ class Statemachine:
                             "C > SM_DRYFAN_DEW_SET_C", "C <= SM_DRYFAN_DEW_SET_C"
                         ),
                     )
+
+    def _entry_drywait(self) -> None:
+        PIN_GPIO_FAN_SILICAGEL.off()
+        PIN_GPIO_FAN_AMBIENT.off()
+        heater.set_power(0)
+        self._dry_wait_filament_dew_C = sht31_filament.measurement_dew_C.value
+
+    def _state_drywait(self) -> None:
+        # diff_dew_C ist positiv wenn der Taupunkt zunimmt
+        diff_dew_C = (
+            sht31_filament.measurement_dew_C.value - self._dry_wait_filament_dew_C
+        )
+        switch_to_fan_on = diff_dew_C > config.SM_DRYWAIT_DIFF_DEW_C
+
+        if switch_to_fan_on:
+            self._switch(
+                self._state_dryfan, f"dew filament increased by {diff_dew_C:0.1f}C"
+            )
 
 
 sm = Statemachine()
