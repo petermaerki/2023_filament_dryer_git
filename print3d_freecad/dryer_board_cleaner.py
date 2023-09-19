@@ -22,7 +22,7 @@ max_tolerance = 0.01
 DIRECTORY_OF_THIS_FILE = pathlib.Path(__file__).parent
 
 infile = DIRECTORY_OF_THIS_FILE / "dryer_board_fixed.dxf"
-outfile = DIRECTORY_OF_THIS_FILE / r"dryer_board_fixed_cleaned.dxf"
+outfile = DIRECTORY_OF_THIS_FILE / "dryer_board_fixed_cleaned.dxf"
 
 
 doc = ezdxf.readfile(infile)

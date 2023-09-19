@@ -46,7 +46,7 @@
         "silk_text_upright": false,
         "zones": {
           "45_degree_only": false,
-          "min_clearance": 0.18
+          "min_clearance": 0.0
         }
       },
       "diff_pair_dimensions": [
@@ -489,6 +489,57 @@
         "via_diameter": 0.4,
         "via_drill": 0.2,
         "wire_width": 6
+      },
+      {
+        "bus_width": 6,
+        "clearance": 0.15,
+        "diff_pair_gap": 0.25,
+        "diff_pair_via_gap": 0.25,
+        "diff_pair_width": 0.2,
+        "line_style": 0,
+        "microvia_diameter": 0.3,
+        "microvia_drill": 0.1,
+        "name": "5V-Fuse",
+        "pcb_color": "rgba(0, 0, 0, 0.000)",
+        "schematic_color": "rgba(0, 0, 0, 0.000)",
+        "track_width": 0.15,
+        "via_diameter": 0.4,
+        "via_drill": 0.2,
+        "wire_width": 6
+      },
+      {
+        "bus_width": 6,
+        "clearance": 0.15,
+        "diff_pair_gap": 0.25,
+        "diff_pair_via_gap": 0.25,
+        "diff_pair_width": 0.2,
+        "line_style": 0,
+        "microvia_diameter": 0.3,
+        "microvia_drill": 0.1,
+        "name": "HEATER-A",
+        "pcb_color": "rgba(0, 0, 0, 0.000)",
+        "schematic_color": "rgba(0, 0, 0, 0.000)",
+        "track_width": 0.15,
+        "via_diameter": 0.4,
+        "via_drill": 0.2,
+        "wire_width": 6
+      },
+      {
+        "bus_width": 6,
+        "clearance": 0.15,
+        "diff_pair_gap": 0.25,
+        "diff_pair_via_gap": 0.25,
+        "diff_pair_width": 0.2,
+        "line_style": 0,
+        "microvia_diameter": 0.3,
+        "microvia_drill": 0.1,
+        "name": "HEATER-B",
+        "pcb_color": "rgba(0, 0, 0, 0.000)",
+        "schematic_color": "rgba(0, 0, 0, 0.000)",
+        "track_width": 0.15,
+        "via_diameter": 0.4,
+        "via_drill": 0.2,
+        "wire_width": 6
       }
     ],
     "meta": {
@@ -501,11 +552,43 @@
     "netclass_patterns": [
       {
         "netclass": "Default",
-        "pattern": "/GPIO11"
+        "pattern": "+5V"
       },
       {
-        "netclass": "+5V",
-        "pattern": "+5V"
+        "netclass": "5V-Fuse",
+        "pattern": "5V-Fuse"
+      },
+      {
+        "netclass": "5V-Fuse",
+        "pattern": "/5V-Fuse"
+      },
+      {
+        "netclass": "HEATER-A",
+        "pattern": "/HEATER-A"
+      },
+      {
+        "netclass": "HEATER-B",
+        "pattern": "/HEATER-B"
+      },
+      {
+        "netclass": "HEATER-A",
+        "pattern": "HEATER-A"
+      },
+      {
+        "netclass": "+3V3",
+        "pattern": "/GPIO_HEATER_A"
+      },
+      {
+        "netclass": "HEATER-B",
+        "pattern": "/GPIO_HEATER_B"
+      },
+      {
+        "netclass": "HEATER-A",
+        "pattern": "GND"
+      },
+      {
+        "netclass": "HEATER-B",
+        "pattern": "HEATER-B"
       }
     ]
   },
