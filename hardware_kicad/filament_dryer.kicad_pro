@@ -575,14 +575,6 @@
         "pattern": "HEATER-A"
       },
       {
-        "netclass": "+3V3",
-        "pattern": "/GPIO_HEATER_A"
-      },
-      {
-        "netclass": "HEATER-B",
-        "pattern": "/GPIO_HEATER_B"
-      },
-      {
         "netclass": "HEATER-A",
         "pattern": "GND"
       },
