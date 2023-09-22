@@ -7,7 +7,7 @@
   (paper "A4")
   (title_block
     (title "2023_filament_dryer")
-    (date "2023-09-20")
+    (date "2023-09-22")
     (rev "0.7")
     (company "Salami Brothers")
     (comment 1 "Released under MIT Open-source License")
