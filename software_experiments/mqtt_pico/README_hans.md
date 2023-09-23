@@ -17,3 +17,13 @@ https://www.influxdata.com/blog/mqtt-topic-payload-parsing-telegraf/
 ## json_v2
 https://www.mikrocontroller.net/topic/545947
 
+
+
+# Vorschlag Peter
+
+Via mqtt einen String schicken an Topic `influx`.
+
+Der String hat dieses Format:
+
+* https://github.com/nanophysics/pico_nano_monitor/blob/main/utils.py
+* # payload = f"airSensor,sensorId=A0100,station=Harbor humidity=35.0658,temperature=37.2" 
