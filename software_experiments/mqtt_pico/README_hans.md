@@ -27,3 +27,5 @@ Der String hat dieses Format:
 
 * https://github.com/nanophysics/pico_nano_monitor/blob/main/utils.py
 * # payload = f"airSensor,sensorId=A0100,station=Harbor humidity=35.0658,temperature=37.2" 
+
+* https://github.com/nanophysics/pico_nano_monitor/blob/influxdb_structure.py
