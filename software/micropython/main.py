@@ -3,12 +3,20 @@ import time
 import os
 import gc
 import _thread
-import neopixel
+import utils_wlan
+import utils_mqtt
 
 from utils_constants import DIRECTORY_LOGS
 from utils_log import Logfile, LogfileTags
 from utils_time import Timebase
-from utils_measurement import SensorDS18, SensorFan, SensorHeater, SensorSHT31, Sensors
+from utils_measurement import (
+    SensorDS18,
+    SensorOnOff,
+    SensorSHT31,
+    SensorHeater,
+    Sensors,
+    SensorStatemachine,
+)
 import utils_measurement
 
 FAST = False
@@ -26,24 +34,26 @@ class Globals:
 
 g = Globals()
 
-PIN_GPIO_NP_A = Pin("GPIO1", mode=Pin.OUT)
-PIN_GPIO_NP_B = Pin("GPIO25", mode=Pin.OUT)
-PIN_GPIO_NP_C = Pin("GPIO2", mode=Pin.OUT)
-PIN_GPIO_NP_BOARD = Pin("GPIO0", mode=Pin.OUT)
+PIN_GPIO_BUTTON = Pin("GPIO22", mode=Pin.IN, pull=Pin.PULL_UP)
+PIN_GPIO_LED_GREEN = Pin("GPIO21", mode=Pin.OUT)
+PIN_GPIO_LED_RED = Pin("GPIO20", mode=Pin.OUT)
+PIN_GPIO_LED_WHITE = Pin("GPIO19", mode=Pin.OUT)
 
-PIN_GPIO_FAN_AMBIENT = Pin("GPIO21", mode=Pin.OUT)
-PIN_GPIO_FAN_SILICAGEL = Pin("GPIO9", mode=Pin.OUT)
+PIN_GPIO_HEATER_A = Pin("GPIO7", mode=Pin.OUT)
+PIN_GPIO_HEATER_B = Pin("GPIO2", mode=Pin.OUT)
 
-PIN_T_HEATING_1WIRE = Pin("GPIO15")
-PIN_T_AUX_1WIRE = Pin("GPIO14")
-PIN_HT_BOARD_SDA = Pin("GPIO26")
-PIN_HT_BOARD_SCL = Pin("GPIO27")
+PIN_GPIO_FAN_AMBIENT = Pin("GPIO0", mode=Pin.OUT)  # ?????
+PIN_GPIO_FAN_SILICAGEL = Pin("GPIO18", mode=Pin.OUT)
 
-PIN_HT_GROVE_SDA = Pin("GPIO12")
-PIN_HT_GROVE_SCL = Pin("GPIO13")
+PIN_T_HEATING_1WIRE = Pin("GPIO28")
+PIN_IC2C0_SDA = Pin("GPIO16")
+PIN_IC2C0_SCL = Pin("GPIO17")
 
-i2c_board = I2C(id=1, scl=PIN_HT_BOARD_SCL, sda=PIN_HT_BOARD_SDA, freq=400000)
-i2c_ext = I2C(id=0, scl=PIN_HT_GROVE_SCL, sda=PIN_HT_GROVE_SDA, freq=400000)
+PIN_IC2C1_SDA = Pin("GPIO26")
+PIN_IC2C1_SCL = Pin("GPIO27")
+
+i2c0 = I2C(id=0, scl=PIN_IC2C0_SCL, sda=PIN_IC2C0_SDA, freq=400000)
+i2c1 = I2C(id=1, scl=PIN_IC2C1_SCL, sda=PIN_IC2C1_SDA, freq=400000)
 
 tb = Timebase(interval_ms=config.MEASURE_INTERVAL_MS)
 logfile = Logfile(timebase=tb)
@@ -60,22 +70,18 @@ class Heater:
     def __init__(
         self,
     ):
-        self._power = 0
+        self._power = False
         self._board_C = 0.0
-        self._neopixels = [
-            neopixel.NeoPixel(pin, 10)
-            for pin in (PIN_GPIO_NP_A, PIN_GPIO_NP_B, PIN_GPIO_NP_C)
-        ]
         self.write_power()
 
     @property
-    def power_controlled(self) -> int:
+    def power_controlled(self) -> bool:
         if self._board_C > config.HEATER_BOARD_MAX:
-            return 0
+            return False
         return self._power
 
-    def set_power(self, power: int):
-        self._power = max(0, min(200, power))
+    def set_power(self, power: bool):
+        self._power = power
 
         self.write_power()
 
@@ -87,31 +93,35 @@ class Heater:
     def write_power(self) -> None:
         power = self.power_controlled
 
-        v = (power, power, power)
-
-        for np in self._neopixels:
-            for i in range(np.n):
-                np[i] = v
-            np.write()
+        PIN_GPIO_HEATER_A.value(power)
+        PIN_GPIO_HEATER_B.value(power)
 
 
 heater = Heater()
 
-ds18_heater = SensorDS18("heater", PIN_T_HEATING_1WIRE)
-sht31_silicagel = SensorSHT31("silicagel", addr=0x44, i2c=i2c_board)
-sht31_filament = SensorSHT31("board", addr=0x45, i2c=i2c_board)
-sht31_ext = SensorSHT31("ext", addr=0x44, i2c=i2c_ext)
+sensor_ds18_heater = SensorDS18("heater", PIN_T_HEATING_1WIRE)
+sensor_sht31_spare = SensorSHT31("spare", addr=0x44, i2c=i2c0)
+sensor_sht31_ambient = SensorSHT31("ambient", addr=0x45, i2c=i2c0)
+sensor_sht31_heater = SensorSHT31("heater", addr=0x44, i2c=i2c1)
+sensor_sht31_filament = SensorSHT31("filament", addr=0x45, i2c=i2c1)
+sensor_heater_power = SensorHeater("heater", heater)
+sensor_statemachine = SensorStatemachine()
 
 sensors = Sensors(
     sensors=[
-        SensorHeater("heater", heater),
-        SensorFan("silicagel", PIN_GPIO_FAN_SILICAGEL),
-        SensorFan("ambient", PIN_GPIO_FAN_AMBIENT),
-        sht31_silicagel,
-        sht31_filament,
-        sht31_ext,
-        ds18_heater,
-        SensorDS18("aux", PIN_T_AUX_1WIRE),
+        sensor_statemachine,
+        SensorOnOff("button", "", PIN_GPIO_BUTTON, inverse=True),
+        SensorOnOff("led_green", "", PIN_GPIO_LED_GREEN),
+        SensorOnOff("led_red", "", PIN_GPIO_LED_RED),
+        SensorOnOff("led_white", "", PIN_GPIO_LED_WHITE),
+        sensor_heater_power,
+        SensorOnOff("silicagel", "_Fan", PIN_GPIO_FAN_SILICAGEL),
+        SensorOnOff("ambient", "_Fan", PIN_GPIO_FAN_AMBIENT),
+        sensor_sht31_spare,
+        sensor_sht31_ambient,
+        sensor_sht31_heater,
+        sensor_sht31_filament,
+        sensor_ds18_heater,
     ],
 )
 
@@ -131,6 +141,15 @@ class Statemachine:
 
     def start(self):
         self._switch(self._state_regenerate, "Statemachine initialization")
+
+    @property
+    def state_idx(self) -> int:
+        return {
+            "regenerate": 0,
+            "cooldown": 1,
+            "dryfan": 2,
+            "drywait": 3,
+        }.get(self.state_name, 42)
 
     @property
     def duration_ms(self) -> int:
@@ -159,11 +178,12 @@ class Statemachine:
         self._regenrate_last_fanon_ms = 0
         PIN_GPIO_FAN_AMBIENT.off()
         PIN_GPIO_FAN_SILICAGEL.off()
-        heater.set_power(255)
+        heater.set_power(True)
 
     def _state_regenerate(self) -> None:
         diff_dew_C = (
-            sht31_silicagel.measurement_dew_C.value - sht31_ext.measurement_dew_C.value
+            sensor_sht31_heater.measurement_dew_C.value
+            - sensor_sht31_ambient.measurement_dew_C.value
         )
         fan_on = diff_dew_C > config.SM_REGENERATE_DIFF_DEW_C
         PIN_GPIO_FAN_AMBIENT.value(fan_on)
@@ -172,7 +192,7 @@ class Statemachine:
             self._regenrate_last_fanon_ms = tb.now_ms
             return
 
-        if ds18_heater.heater_C < config.SM_REGENERATE_HOT_C:
+        if sensor_ds18_heater.heater_C < config.SM_REGENERATE_HOT_C:
             self._regenrate_last_fanon_ms = tb.now_ms
             return
 
@@ -186,10 +206,10 @@ class Statemachine:
     def _entry_cooldown(self) -> None:
         PIN_GPIO_FAN_SILICAGEL.off()
         PIN_GPIO_FAN_AMBIENT.off()
-        heater.set_power(0)
+        heater.set_power(False)
 
     def _state_cooldown(self) -> None:
-        heater_C = ds18_heater.heater_C
+        heater_C = sensor_ds18_heater.heater_C
         if heater_C < config.SM_COOLDOWN_TEMPERATURE_HEATER_C:
             self._switch(
                 self._state_dryfan,
@@ -200,7 +220,7 @@ class Statemachine:
     def _entry_dryfan(self) -> None:
         PIN_GPIO_FAN_SILICAGEL.on()
         PIN_GPIO_FAN_AMBIENT.off()
-        heater.set_power(0)
+        heater.set_power(False)
         self._dryfan_list_dew_C = []
         self._dryfan_next_ms = tb.now_ms
 
@@ -208,11 +228,13 @@ class Statemachine:
         if tb.now_ms >= self._dryfan_next_ms:
             logfile.log(
                 LogfileTags.LOG_INFO,
-                f"len={len(self._dryfan_list_dew_C)}, append({sht31_filament.measurement_dew_C.value})",
+                f"len={len(self._dryfan_list_dew_C)}, append({sensor_sht31_filament.measurement_dew_C.value})",
                 stdout=True,
             )
             self._dryfan_next_ms += config.SM_DRYFAN_NEXT_MS
-            self._dryfan_list_dew_C.insert(0, sht31_filament.measurement_dew_C.value)
+            self._dryfan_list_dew_C.insert(
+                0, sensor_sht31_filament.measurement_dew_C.value
+            )
 
             if len(self._dryfan_list_dew_C) > config.SM_DRYFAN_ELEMENTS:
                 reduction_dew_C = (
@@ -225,9 +247,9 @@ class Statemachine:
                 )
                 self._dryfan_list_dew_C.pop()
                 if reduction_dew_C < config.SM_DRYFAN_DIFF_DEW_C:
-                    why = f"reduction_dew_C {reduction_dew_C:0.1f}C < SM_DRYFAN_DIFF_DEW_C {config.SM_DRYFAN_DIFF_DEW_C:0.1f}C AND sht31_board.measurement_dew_C {sht31_filament.measurement_dew_C.value:0.1f}C > SM_DRYFAN_DEW_SET_C {config.SM_DRYFAN_DEW_SET_C:0.1f}C"
+                    why = f"reduction_dew_C {reduction_dew_C:0.1f}C < SM_DRYFAN_DIFF_DEW_C {config.SM_DRYFAN_DIFF_DEW_C:0.1f}C AND sht31_board.measurement_dew_C {sensor_sht31_filament.measurement_dew_C.value:0.1f}C > SM_DRYFAN_DEW_SET_C {config.SM_DRYFAN_DEW_SET_C:0.1f}C"
                     if (
-                        sht31_filament.measurement_dew_C.value
+                        sensor_sht31_filament.measurement_dew_C.value
                         > config.SM_DRYFAN_DEW_SET_C
                     ):
                         self._switch(self._state_regenerate, why)
@@ -243,13 +265,14 @@ class Statemachine:
     def _entry_drywait(self) -> None:
         PIN_GPIO_FAN_SILICAGEL.off()
         PIN_GPIO_FAN_AMBIENT.off()
-        heater.set_power(0)
-        self._dry_wait_filament_dew_C = sht31_filament.measurement_dew_C.value
+        heater.set_power(False)
+        self._dry_wait_filament_dew_C = sensor_sht31_filament.measurement_dew_C.value
 
     def _state_drywait(self) -> None:
         # diff_dew_C ist positiv wenn der Taupunkt zunimmt
         diff_dew_C = (
-            sht31_filament.measurement_dew_C.value - self._dry_wait_filament_dew_C
+            sensor_sht31_filament.measurement_dew_C.value
+            - self._dry_wait_filament_dew_C
         )
         switch_to_fan_on = diff_dew_C > config.SM_DRYWAIT_DIFF_DEW_C
 
@@ -260,21 +283,40 @@ class Statemachine:
 
 
 sm = Statemachine()
+sensor_statemachine.set_sm(sm=sm)
+
+stdout_measurements = [
+    sensor_statemachine.measurement_text,
+    sensor_statemachine.measurement_idx,
+    sensor_heater_power.measurement_power,
+    sensor_ds18_heater.measurement_C,
+    sensor_sht31_ambient.measurement_H,  # measurement_C, measurement_H, measurement_dew_C
+    sensor_sht31_heater.measurement_H,
+    sensor_sht31_filament.measurement_H,
+]
 
 
 def main_core2():
     print("filament_dryer started")
-    logfile.log(LogfileTags.SENSORS_HEADER, sensors.header)
+    logfile.log(LogfileTags.SENSORS_HEADER, sensors.get_header())
     sm.start()
 
     while True:
         sensors.measure()
 
         sm.state()
-        heater.set_board_C(board_C=ds18_heater.heater_C)
+        heater.set_board_C(board_C=sensor_ds18_heater.heater_C)
 
         # logfile.log(LogfileTags.LOG_DEBUG, f"{tb.sleep_done_ms}, {tb.sleep_done_ms}")
-        logfile.log(LogfileTags.SENSORS_VALUES, sensors.values, stdout=g.stdout)
+        logfile.log(
+            LogfileTags.SENSORS_VALUES,
+            sensors.get_values(stdout_measurements),
+            stdout=g.stdout,
+        )
+
+        # print("get_mqtt_fields")
+        # print(sensors.get_mqtt_fields())
+        utils_mqtt.publish(fields=sensors.get_mqtt_fields())
 
         if g.stop_thread:
             logfile.log(LogfileTags.LOG_INFO, "Stopped", stdout=True)
@@ -284,7 +326,15 @@ def main_core2():
         tb.sleep()
 
 
+utils_wlan.connect()
+utils_mqtt.connect()
+
 if False:
+    PIN_GPIO_LED_GREEN.value(0)
+    PIN_GPIO_LED_RED.value(0)
+    PIN_GPIO_LED_WHITE.value(0)
+    g.stdout = True
+    print(sensors.get_header(stdout_measurements))
     main_core2()
 else:
     _thread.start_new_thread(main_core2, ())
@@ -311,8 +361,8 @@ def hd():
     print(sensors.header)
 
 
-def h(power: int):
-    heater.set_power(power)
+def h(power: bool):
+    heater.set_power(power=power)
 
 
 def stop():
@@ -357,7 +407,7 @@ def rmo():
 
 
 def rf():  # Reformat
-    heater.set_power(0)
+    heater.set_power(False)
 
     # https://www.i-programmer.info/programming/hardware/16334-raspberry-pi-pico-file-system-a-sd-card-reader.html?start=1
     from rp2 import Flash
@@ -373,13 +423,14 @@ def smp():
     print(sm.state_name)
 
 
-def sm1():
+def sm0():
     sm._switch(sm._state_regenerate, "Manual intervention")
 
+def sm1():
+    sm._switch(sm._state_cooldown, "Manual intervention")
 
 def sm2():
     sm._switch(sm._state_drywait, "Manual intervention")
-
 
 def sm3():
     sm._switch(sm._state_dryfan, "Manual intervention")

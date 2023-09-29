@@ -12,12 +12,19 @@ logfile = None
 
 
 class Measurement:
-    def __init__(self, sensor: "SensorBase", tag: str, unit: str, format: str):
+    def __init__(
+        self, sensor: "SensorBase", tag: str, unit: str, format: str, mqtt=True
+    ):
         self._sensor = sensor
         self._tag = tag
         self._unit = unit
         self._format: str = format
+        self._mqtt = mqtt
         self.value: float = None
+
+    @property
+    def mqtt(self) -> bool:
+        return self._mqtt and not self._sensor._broken
 
     @property
     def tag(self) -> str:
@@ -115,25 +122,49 @@ class SensorDS18(SensorBase):
         self.measurement_C.value = self._ds18.read_temp(self._sensors[0])
 
 
-class SensorFan(SensorBase):
-    def __init__(self, tag: str, pin: Pin):
+class SensorOnOff(SensorBase):
+    def __init__(self, tag: str, label: str, pin: Pin, inverse: bool = False):
         self._pin = pin
-        self.measurement_1 = Measurement(self, "_Fan", "Fan", "{value:d}")
+        self._inverse = inverse
+        self.measurement_1 = Measurement(self, label, "OnOff", "{value:d}")
         SensorBase.__init__(self, tag=tag, measurements=[self.measurement_1])
 
     def measure2(self):
-        self.measurement_1.value = self._pin.value()
+        v = self._pin.value()
+        if self._inverse:
+            v = not v
+        self.measurement_1.value = v
 
 
 class SensorHeater(SensorBase):
     def __init__(self, tag: str, heater: "Heater"):
         self._heater = heater
-        self.measurement_heater = Measurement(self, "_heater", "%", "{value:0.0f}")
-        SensorBase.__init__(self, tag=tag, measurements=[self.measurement_heater])
+        self.measurement_power = Measurement(self, "_Power", "%", "{value:0.0f}")
+        SensorBase.__init__(self, tag=tag, measurements=[self.measurement_power])
 
     def measure2(self):
         """0 .. 100%"""
-        self.measurement_heater.value = self._heater.power_controlled * 100.0 / 255.0
+        self.measurement_power.value = self._heater.power_controlled * 100.0
+
+
+class SensorStatemachine(SensorBase):
+    def __init__(self):
+        self._sm = None
+        self.measurement_text = Measurement(self, "_text", "", "{value}", mqtt=False)
+        self.measurement_idx = Measurement(self, "", "", "{value}")
+        SensorBase.__init__(
+            self,
+            tag="statemachine",
+            measurements=[self.measurement_text, self.measurement_idx],
+        )
+
+    def set_sm(self, sm):
+        self._sm = sm
+
+    def measure2(self):
+        assert self._sm is not None
+        self.measurement_text.value = self._sm.state_name
+        self.measurement_idx.value = self._sm.state_idx
 
 
 class Sensors:
@@ -176,10 +207,15 @@ class Sensors:
                     s.io_error(ex=ex)
                     continue
 
-    @property
-    def header(self) -> str:
-        return LOGFILE_DELIMITER.join([m.tag for m in self._measurements])
+    def get_header(self, measurements=None) -> str:
+        if measurements is None:
+            measurements = self._measurements
+        return LOGFILE_DELIMITER.join([m.tag for m in measurements])
 
-    @property
-    def values(self) -> str:
-        return LOGFILE_DELIMITER.join([m.value_text for m in self._measurements])
+    def get_values(self, measurements=None) -> str:
+        if measurements is None:
+            measurements = self._measurements
+        return LOGFILE_DELIMITER.join([m.value_text for m in measurements])
+
+    def get_mqtt_fields(self) -> dict:
+        return {m.tag: m.value_text for m in self._measurements if m.mqtt}

@@ -43,3 +43,5 @@ Probleme:
 
  * Konsistente Namensgebung: SILICAGEL, FILAMENT, AMBIENT. Falsch ist BOARD, EXTs
 
+# 2023-09-28 v1.0
+  * GPIO_FAN_AMBIENT is missing!

@@ -1,3 +1,6 @@
 hardware_kicad/fp-info-cache
 hardware_kicad/filament_dryer-backups/*.zip
 hardware_kicad/00_project_library.bak
+software_experiments/mqtt_pico/experiment_b/secrets.py
+.gitignore
+software/micropython/secrets.py
