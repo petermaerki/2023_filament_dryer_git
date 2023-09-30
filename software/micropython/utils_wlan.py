@@ -102,7 +102,7 @@ class MQTT:
             # We are already connected
             return True
         self.client.set_callback(self._callback)
-        print(f"MQTT Broker {secrets.MQTT_BROKER}")
+        print(f"MQTT Broker '{secrets.MQTT_BROKER}'")
         try:
             self.client.connect()
         except OSError as e:
