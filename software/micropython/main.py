@@ -1,15 +1,17 @@
-from machine import Pin, I2C
+from machine import Pin, I2C, reset
+import micropython
 import os
 import gc
-import micropython
 import _thread
 
 micropython.alloc_emergency_exception_buf(100)
 
 import utils_wlan
 
+import config
 from utils_constants import DIRECTORY_LOGS
 from utils_log import Logfile, LogfileTags
+import utils_button
 from utils_time import Timebase
 from utils_measurement import (
     SensorDS18,
@@ -20,12 +22,6 @@ from utils_measurement import (
     SensorStatemachine,
 )
 import utils_measurement
-
-FAST = False
-if FAST:
-    import config_fast as config
-else:
-    import config_normal as config
 
 
 class Globals:
@@ -127,22 +123,41 @@ sensors = Sensors(
     ],
 )
 
+stdout_measurements = [
+    sensor_statemachine.measurement_string,
+    sensor_heater_power.measurement_power,
+    sensor_ds18_heater.measurement_C,
+    sensor_sht31_ambient.measurement_H,  # measurement_C, measurement_H, measurement_dew_C
+    sensor_sht31_heater.measurement_H,
+    sensor_sht31_filament.measurement_H,
+    sensor_sht31_spare.measurement_H,
+]
+
 
 class Statemachine:
     PREFIX_STATE = "_state_"
     PREFIX_ENTRY = "_entry_"
 
     def __init__(self):
-        self.state = None
+        self.state = self._state_init
         self.state_name = "none"
         self._start_ms = 0
 
         self._regenrate_last_fanon_ms = 0
         self._dryfan_list_dew_C = []
         self._dryfan_next_ms = 0
+        self._forward_to_next_state = False
 
-    def start(self):
-        self._switch(self._state_regenerate, "Statemachine initialization")
+    def set_forward_to_next_state(self) -> None:
+        self._forward_to_next_state = True
+        self.state()
+
+    @property
+    def forward_to_next_state(self) -> bool:
+        if self._forward_to_next_state:
+            self._forward_to_next_state = False
+            return True
+        return False
 
     @property
     def duration_ms(self) -> int:
@@ -176,6 +191,20 @@ class Statemachine:
         f_entry = getattr(self, new_entry_name)
         f_entry()
 
+    # State: INIT
+    def _state_init(self) -> None:
+        self._switch(self._state_idle, "Statemachine initialization")
+
+    # State: OFF
+    def _entry_off(self) -> None:
+        PIN_GPIO_FAN_AMBIENT.off()
+        PIN_GPIO_FAN_SILICAGEL.off()
+        heater.set_power(False)
+
+    def _state_off(self) -> None:
+        if self.forward_to_next_state:
+            self._switch(self._state_regenerate, "Forward to next state")
+
     # State: REGENERATE
     def _entry_regenerate(self) -> None:
         self._regenrate_last_fanon_ms = 0
@@ -184,6 +213,10 @@ class Statemachine:
         heater.set_power(True)
 
     def _state_regenerate(self) -> None:
+        if self.forward_to_next_state:
+            self._switch(self._state_cooldown, "Forward to next state")
+            return
+
         # Controller for the fan
         diff_dew_C = (
             sensor_sht31_heater.measurement_dew_C.value
@@ -214,6 +247,10 @@ class Statemachine:
         heater.set_power(False)
 
     def _state_cooldown(self) -> None:
+        if self.forward_to_next_state:
+            self._switch(self._state_dryfan, "Forward to next state")
+            return
+
         heater_C = sensor_ds18_heater.heater_C
         if heater_C < config.SM_COOLDOWN_TEMPERATURE_HEATER_C:
             self._switch(
@@ -230,6 +267,10 @@ class Statemachine:
         self._dryfan_next_ms = tb.now_ms
 
     def _state_dryfan(self) -> None:
+        if self.forward_to_next_state:
+            self._switch(self._state_drywait, "Forward to next state")
+            return
+
         if tb.now_ms >= self._dryfan_next_ms:
             logfile.log(
                 LogfileTags.LOG_INFO,
@@ -274,6 +315,10 @@ class Statemachine:
         self._dry_wait_filament_dew_C = sensor_sht31_filament.measurement_dew_C.value
 
     def _state_drywait(self) -> None:
+        if self.forward_to_next_state:
+            self._switch(self._state_regenerate, "Forward to next state")
+            return
+
         # diff_dew_C ist positiv wenn der Taupunkt zunimmt
         diff_dew_C = (
             sensor_sht31_filament.measurement_dew_C.value
@@ -289,16 +334,6 @@ class Statemachine:
 
 sm = Statemachine()
 sensor_statemachine.set_sm(sm=sm)
-
-stdout_measurements = [
-    sensor_statemachine.measurement_string,
-    sensor_heater_power.measurement_power,
-    sensor_ds18_heater.measurement_C,
-    sensor_sht31_ambient.measurement_H,  # measurement_C, measurement_H, measurement_dew_C
-    sensor_sht31_heater.measurement_H,
-    sensor_sht31_filament.measurement_H,
-    sensor_sht31_spare.measurement_H,
-]
 
 
 # print(LogfileTags.SENSORS_HEADER)
@@ -322,7 +357,6 @@ def main_core2():
     mqtt.register_callback("statemachine", statemachine_cb)
 
     logfile.log(LogfileTags.SENSORS_HEADER, sensors.get_header())
-    sm.start()
 
     while True:
         sensors.measure()
@@ -365,30 +399,22 @@ def main_core2():
 # PIN_GPIO_FAN_SILICAGEL.value(1)
 
 
-import time
-
-class Button:
-    def __init__(self, pin: Pin):
-        pin.irq(self._irq)
-        self._start_ms = time.ticks_ms()
-
-    def _irq(self, p):
-        start_ms = time.ticks_ms()
-        duration_ms = time.ticks_diff(time.ticks_ms(), start_ms)
-        if duration_ms < 5:
-            # Bounce
-            return
-        if duration_ms < 2000:
-            # Short press
-            print("Short")
-            return
-        if duration_ms < 20000:
-            print("Long")
-            return
+def pressed(duration_ms: int) -> None:
+    sm.set_forward_to_next_state()
 
 
-# configure an irq callback
-PIN_GPIO_BUTTON.irq(lambda p: print(p))
+def long_pressed(timer) -> None:
+    # Hard reset micropython
+    reset()
+
+
+utils_button.Button(
+    PIN_GPIO_BUTTON,
+    pressed_cb=pressed,
+    cb_long_press=long_pressed,
+    long_press_ms=2000,
+    invers=True,
+)
 
 
 def thread():
