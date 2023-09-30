@@ -193,13 +193,17 @@ class Statemachine:
 
     # State: INIT
     def _state_init(self) -> None:
-        self._switch(self._state_idle, "Statemachine initialization")
+        self._switch(self._state_off, "Statemachine initialization")
 
     # State: OFF
     def _entry_off(self) -> None:
         PIN_GPIO_FAN_AMBIENT.off()
         PIN_GPIO_FAN_SILICAGEL.off()
         heater.set_power(False)
+
+        PIN_GPIO_LED_GREEN.value(1)
+        PIN_GPIO_LED_RED.value(1)
+        PIN_GPIO_LED_WHITE.value(1)
 
     def _state_off(self) -> None:
         if self.forward_to_next_state:
@@ -211,6 +215,11 @@ class Statemachine:
         PIN_GPIO_FAN_AMBIENT.off()
         PIN_GPIO_FAN_SILICAGEL.off()
         heater.set_power(True)
+
+        PIN_GPIO_LED_GREEN.value(0)
+        PIN_GPIO_LED_RED.value(1)
+        PIN_GPIO_LED_WHITE.value(0)
+
 
     def _state_regenerate(self) -> None:
         if self.forward_to_next_state:
@@ -246,6 +255,10 @@ class Statemachine:
         PIN_GPIO_FAN_AMBIENT.off()
         heater.set_power(False)
 
+        PIN_GPIO_LED_GREEN.value(0)
+        PIN_GPIO_LED_RED.value(1)
+        PIN_GPIO_LED_WHITE.value(1)
+
     def _state_cooldown(self) -> None:
         if self.forward_to_next_state:
             self._switch(self._state_dryfan, "Forward to next state")
@@ -265,6 +278,10 @@ class Statemachine:
         heater.set_power(False)
         self._dryfan_list_dew_C = []
         self._dryfan_next_ms = tb.now_ms
+
+        PIN_GPIO_LED_GREEN.value(0)
+        PIN_GPIO_LED_RED.value(0)
+        PIN_GPIO_LED_WHITE.value(1)
 
     def _state_dryfan(self) -> None:
         if self.forward_to_next_state:
@@ -314,9 +331,13 @@ class Statemachine:
         heater.set_power(False)
         self._dry_wait_filament_dew_C = sensor_sht31_filament.measurement_dew_C.value
 
+        PIN_GPIO_LED_GREEN.value(1)
+        PIN_GPIO_LED_RED.value(0)
+        PIN_GPIO_LED_WHITE.value(0)
+
     def _state_drywait(self) -> None:
         if self.forward_to_next_state:
-            self._switch(self._state_regenerate, "Forward to next state")
+            self._switch(self._state_off, "Forward to next state")
             return
 
         # diff_dew_C ist positiv wenn der Taupunkt zunimmt
