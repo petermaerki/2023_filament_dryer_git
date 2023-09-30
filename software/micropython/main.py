@@ -147,6 +147,7 @@ class Statemachine:
         self._dryfan_list_dew_C = []
         self._dryfan_next_ms = 0
         self._forward_to_next_state = False
+        self.statechange_cb = lambda state, new_state, why: state
 
     def set_forward_to_next_state(self) -> None:
         self._forward_to_next_state = True
@@ -178,11 +179,9 @@ class Statemachine:
         new_state_name = new_state.__name__.replace(self.PREFIX_STATE, "")
         if self.state_name == new_state_name:
             return
-        logfile.log(
-            LogfileTags.SM_STATE,
-            f"'{self.state_name}' -> '{new_state_name}' {why}",
-            stdout=True,
-        )
+        msg = f"'{self.state_name}' -> '{new_state_name}' {why}"
+        logfile.log(LogfileTags.SM_STATE, msg, stdout=True)
+        self.statechange_cb(self.state_name, new_state_name, why)
         self.state_name = new_state_name
         self.state = new_state
         self._start_ms = tb.now_ms
@@ -219,7 +218,6 @@ class Statemachine:
         PIN_GPIO_LED_GREEN.value(0)
         PIN_GPIO_LED_RED.value(1)
         PIN_GPIO_LED_WHITE.value(0)
-
 
     def _state_regenerate(self) -> None:
         if self.forward_to_next_state:
@@ -370,6 +368,10 @@ def main_core2():
     # Make sure, 'wlan' and 'mqtt' are instantiated in the thread which will access them
     wlan = utils_wlan.WLAN()
     mqtt = utils_wlan.MQTT(wlan)
+
+    def statechange(old:str, new: str, why: str)->None:
+        mqtt.publish_annotation(title=f"Statechange: {old} -> {new}", text=f"Why: {why}")
+    sm.statechange_cb = statechange
 
     def statemachine_cb(msg: str):
         print(f"statemachine_cb: {msg}")

@@ -114,9 +114,10 @@ class MQTT:
             self.client.subscribe(topic)
             self.client.publish(topic, INITIAL_VALUE)
 
+        self.publish_annotation(title="WLAN", text="connected")
         return True
 
-    def publish(self, fields: dict) -> None:
+    def publish(self, fields: dict, annotation=False) -> None:
         if not self.connect():
             return
         measurements = [
@@ -129,6 +130,8 @@ class MQTT:
                 },
             },
         ]
+        if annotation:
+            measurements[0]["tags"]["event"] = "annotation"
         payload = utils_influxdb.build_payload(measurements)
         if False:
             print(f"{MQTT_BROKER}: {PUBLISH_TOPIC}")
@@ -145,3 +148,12 @@ class MQTT:
             print(f"ERROR: MQTT check_msg() failed: {e}")
             self.wlan.disconnect()
             return
+
+    def publish_annotation(self, title: str, text: str) -> None:
+        fields = {
+            "event": '"annotation"',
+            "severity": '"INFO"',
+            "title": f'"{title}"',
+            "text": f'"{text}"',
+        }
+        self.publish(fields=fields, annotation=True)
