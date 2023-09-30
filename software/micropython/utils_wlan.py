@@ -63,12 +63,29 @@ class WLAN:
 
 # CLIENT_ID = ubinascii.hexlify(machine.unique_id())
 PUBLISH_TOPIC = b"forward2influxdb"
+INITIAL_VALUE = b"dummy"
 
 
 class MQTT:
     def __init__(self, wlan: WLAN):
         self.client = None
         self.wlan = wlan
+        self._callbacks = {}
+
+    # def create_subscribe_topic(self, subtopic: str) -> bytes:
+    #     return f"filament_driver/{MQTT_CLIENT_ID}/{subtopic}".encode()
+    def register_callback(self, subtopic: str, cb):
+        topic = f"filament_driver/{MQTT_CLIENT_ID}/{subtopic}".encode()
+        self._callbacks[topic] = cb
+
+    def _callback(self, topic: bytes, msg: bytes):
+        if msg == INITIAL_VALUE:
+            return
+        cb = self._callbacks.get(topic, None)
+        if cb is None:
+            print(f"Topic '{topic}' was not registered!")
+            return
+        cb(msg.decode("ascii"))
 
     def connect(self):
         if not self.wlan.connect():
@@ -78,7 +95,7 @@ class MQTT:
         if self.client.sock is not None:
             # We are already connected
             return True
-        # self.client.set_callback(sub_cb)
+        self.client.set_callback(self._callback)
         print(f"MQTT Broker {MQTT_BROKER}")
         try:
             self.client.connect()
@@ -87,6 +104,10 @@ class MQTT:
             return False
         # self.client.subscribe(SUBSCRIBE_TOPIC)
         # self.client.publish(SUBSCRIBE_TOPIC, "Off")
+        for topic in self._callbacks:
+            self.client.subscribe(topic)
+            self.client.publish(topic, INITIAL_VALUE)
+
         return True
 
     def publish(self, fields: dict) -> None:
@@ -111,4 +132,10 @@ class MQTT:
         except OSError as e:
             print(f"ERROR: MQTT publish() failed: {e}")
             self.wlan.disconnect()
-            return False
+            return
+        try:
+            self.client.check_msg()
+        except OSError as e:
+            print(f"ERROR: MQTT check_msg() failed: {e}")
+            self.wlan.disconnect()
+            return

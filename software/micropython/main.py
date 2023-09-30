@@ -148,6 +148,16 @@ class Statemachine:
     def duration_ms(self) -> int:
         return tb.now_ms - self._start_ms
 
+    def switch_by_name(self, new_state: str) -> None:
+        state_name = f"_state_{new_state}"
+        print(f"state_name: '{state_name}'")
+        try:
+            state_func = getattr(self, state_name)
+        except AttributeError as e:
+            print(f"WARNING: Unexisting state '{state_name}'!")
+            return
+        self._switch(state_func, "MQTT intervention")
+
     def _switch(self, new_state, why: str) -> None:
         assert new_state.__name__.startswith(self.PREFIX_STATE)
         new_state_name = new_state.__name__.replace(self.PREFIX_STATE, "")
@@ -302,6 +312,12 @@ def main_core2():
     wlan = utils_wlan.WLAN()
     mqtt = utils_wlan.MQTT(wlan)
 
+    def statemachine_cb(msg: str):
+        print(f"statemachine_cb: {msg}")
+        sm.switch_by_name(msg)
+
+    mqtt.register_callback("statemachine", statemachine_cb)
+
     logfile.log(LogfileTags.SENSORS_HEADER, sensors.get_header())
     sm.start()
 
@@ -435,6 +451,10 @@ def format():  # Reformat
 
 def smp():
     print(sm.state_name)
+
+
+def smx(new_state: str):
+    sm.switch_by_name(new_state)
 
 
 def sm0():
