@@ -2,7 +2,7 @@ import time
 import network
 from utils_umqtt import MQTTClient
 
-from secrets import SSID_CREDENTIALS, MQTT_BROKER, MQTT_CLIENT_ID
+import secrets
 import utils_influxdb
 
 
@@ -16,9 +16,9 @@ class WLAN:
         or (None, None)
         """
         for ssid, bssid, channel, RSSI, security, hidden in self.sta_fi.scan():
-            for _ssid, password in SSID_CREDENTIALS:
+            for _ssid, password in secrets.SSID_CREDENTIALS:
                 assert isinstance(_ssid, bytes), _ssid
-                print("ssid", ssid, _ssid)
+                # print("ssid", ssid, _ssid)
                 if ssid == _ssid:
                     return (_ssid, password)
         else:
@@ -75,7 +75,7 @@ class MQTT:
     # def create_subscribe_topic(self, subtopic: str) -> bytes:
     #     return f"filament_driver/{MQTT_CLIENT_ID}/{subtopic}".encode()
     def register_callback(self, subtopic: str, cb):
-        topic = f"filament_driver/{MQTT_CLIENT_ID}/{subtopic}".encode()
+        topic = f"filament_driver/{secrets.MQTT_CLIENT_ID}/{subtopic}".encode()
         self._callbacks[topic] = cb
 
     def _callback(self, topic: bytes, msg: bytes):
@@ -91,12 +91,18 @@ class MQTT:
         if not self.wlan.connect():
             return
         if self.client is None:
-            self.client = MQTTClient(MQTT_CLIENT_ID, MQTT_BROKER, keepalive=30)
+            self.client = MQTTClient(
+                secrets.MQTT_CLIENT_ID,
+                secrets.MQTT_BROKER,
+                user=secrets.MQTT_BROKER_USER,
+                password=secrets.MQTT_BROKER_PW,
+                keepalive=30,
+            )
         if self.client.sock is not None:
             # We are already connected
             return True
         self.client.set_callback(self._callback)
-        print(f"MQTT Broker {MQTT_BROKER}")
+        print(f"MQTT Broker {secrets.MQTT_BROKER}")
         try:
             self.client.connect()
         except OSError as e:
@@ -115,7 +121,7 @@ class MQTT:
             return
         measurements = [
             {
-                "measurement": MQTT_CLIENT_ID,  # a measurement has one 'measurement'. It is the name of the pcb.
+                "measurement": secrets.MQTT_CLIENT_ID,  # a measurement has one 'measurement'. It is the name of the pcb.
                 "fields": fields,
                 "tags": {
                     "setup": "zeus",
