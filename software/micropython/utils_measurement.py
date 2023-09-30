@@ -13,13 +13,20 @@ logfile = None
 
 class Measurement:
     def __init__(
-        self, sensor: "SensorBase", tag: str, unit: str, format: str, mqtt=True
+        self,
+        sensor: "SensorBase",
+        tag: str,
+        unit: str,
+        format: str,
+        mqtt=True,
+        mqtt_string=False,
     ):
         self._sensor = sensor
         self._tag = tag
         self._unit = unit
         self._format: str = format
         self._mqtt = mqtt
+        self._mqtt_string = mqtt_string
         self.value: float = None
 
     @property
@@ -35,6 +42,16 @@ class Measurement:
         if self._sensor._broken:
             return "-"
         try:
+            return self._format.format(value=self.value, unit=self._unit)
+        except Exception as ex:
+            print(f"ERROR: {self.tag}: {ex}")
+
+    @property
+    def value_mqtt(self):
+        assert not self._sensor._broken
+        try:
+            if self._mqtt_string:
+                return f'"{self.value}"'
             return self._format.format(value=self.value, unit=self._unit)
         except Exception as ex:
             print(f"ERROR: {self.tag}: {ex}")
@@ -150,12 +167,9 @@ class SensorHeater(SensorBase):
 class SensorStatemachine(SensorBase):
     def __init__(self):
         self._sm = None
-        self.measurement_text = Measurement(self, "_text", "", "{value}", mqtt=False)
-        self.measurement_idx = Measurement(self, "", "", "{value}")
+        self.measurement_string = Measurement(self, "", "", "{value}", mqtt_string=True)
         SensorBase.__init__(
-            self,
-            tag="statemachine",
-            measurements=[self.measurement_text, self.measurement_idx],
+            self, tag="statemachine", measurements=[self.measurement_string]
         )
 
     def set_sm(self, sm):
@@ -163,8 +177,7 @@ class SensorStatemachine(SensorBase):
 
     def measure2(self):
         assert self._sm is not None
-        self.measurement_text.value = self._sm.state_name
-        self.measurement_idx.value = self._sm.state_idx
+        self.measurement_string.value = self._sm.state_name
 
 
 class Sensors:
@@ -218,4 +231,4 @@ class Sensors:
         return LOGFILE_DELIMITER.join([m.value_text for m in measurements])
 
     def get_mqtt_fields(self) -> dict:
-        return {m.tag: m.value_text for m in self._measurements if m.mqtt}
+        return {m.tag: m.value_mqtt for m in self._measurements if m.mqtt}

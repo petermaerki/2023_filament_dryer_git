@@ -1,10 +1,12 @@
 from machine import Pin, I2C
-import time
 import os
 import gc
+import micropython
 import _thread
+
+micropython.alloc_emergency_exception_buf(100)
+
 import utils_wlan
-import utils_mqtt
 
 from utils_constants import DIRECTORY_LOGS
 from utils_log import Logfile, LogfileTags
@@ -100,7 +102,7 @@ class Heater:
 heater = Heater()
 
 sensor_ds18_heater = SensorDS18("heater", PIN_T_HEATING_1WIRE)
-sensor_sht31_spare = SensorSHT31("spare", addr=0x44, i2c=i2c0)
+# sensor_sht31_spare = SensorSHT31("spare", addr=0x44, i2c=i2c0)
 sensor_sht31_ambient = SensorSHT31("ambient", addr=0x45, i2c=i2c0)
 sensor_sht31_heater = SensorSHT31("heater", addr=0x44, i2c=i2c1)
 sensor_sht31_filament = SensorSHT31("filament", addr=0x45, i2c=i2c1)
@@ -117,7 +119,7 @@ sensors = Sensors(
         sensor_heater_power,
         SensorOnOff("silicagel", "_Fan", PIN_GPIO_FAN_SILICAGEL),
         SensorOnOff("ambient", "_Fan", PIN_GPIO_FAN_AMBIENT),
-        sensor_sht31_spare,
+        # sensor_sht31_spare,
         sensor_sht31_ambient,
         sensor_sht31_heater,
         sensor_sht31_filament,
@@ -141,15 +143,6 @@ class Statemachine:
 
     def start(self):
         self._switch(self._state_regenerate, "Statemachine initialization")
-
-    @property
-    def state_idx(self) -> int:
-        return {
-            "regenerate": 0,
-            "cooldown": 1,
-            "dryfan": 2,
-            "drywait": 3,
-        }.get(self.state_name, 42)
 
     @property
     def duration_ms(self) -> int:
@@ -286,8 +279,7 @@ sm = Statemachine()
 sensor_statemachine.set_sm(sm=sm)
 
 stdout_measurements = [
-    sensor_statemachine.measurement_text,
-    sensor_statemachine.measurement_idx,
+    sensor_statemachine.measurement_string,
     sensor_heater_power.measurement_power,
     sensor_ds18_heater.measurement_C,
     sensor_sht31_ambient.measurement_H,  # measurement_C, measurement_H, measurement_dew_C
@@ -296,8 +288,20 @@ stdout_measurements = [
 ]
 
 
+# print(LogfileTags.SENSORS_HEADER)
+
+
 def main_core2():
     print("filament_dryer started")
+
+    # Wait for main thread to completely load the module
+    # import time
+    # time.sleep(1)
+
+    # Make sure, 'wlan' and 'mqtt' are instantiated in the thread which will access them
+    wlan = utils_wlan.WLAN()
+    mqtt = utils_wlan.MQTT(wlan)
+
     logfile.log(LogfileTags.SENSORS_HEADER, sensors.get_header())
     sm.start()
 
@@ -316,7 +320,7 @@ def main_core2():
 
         # print("get_mqtt_fields")
         # print(sensors.get_mqtt_fields())
-        utils_mqtt.publish(fields=sensors.get_mqtt_fields())
+        mqtt.publish(fields=sensors.get_mqtt_fields())
 
         if g.stop_thread:
             logfile.log(LogfileTags.LOG_INFO, "Stopped", stdout=True)
@@ -326,18 +330,28 @@ def main_core2():
         tb.sleep()
 
 
-utils_wlan.connect()
-utils_mqtt.connect()
+# if False:
+#     PIN_GPIO_LED_GREEN.value(0)
+#     PIN_GPIO_LED_RED.value(0)
+#     PIN_GPIO_LED_WHITE.value(0)
+#     g.stdout = True
+#     # print(sensors.get_header(stdout_measurements))
+#     main_core2()
+# else:
+#     _thread.start_new_thread(main_core2, ())
 
-if False:
-    PIN_GPIO_LED_GREEN.value(0)
-    PIN_GPIO_LED_RED.value(0)
-    PIN_GPIO_LED_WHITE.value(0)
-    g.stdout = True
-    print(sensors.get_header(stdout_measurements))
-    main_core2()
-else:
+
+def thread():
     _thread.start_new_thread(main_core2, ())
+
+
+def main():
+    main_core2()
+
+
+# def disconnect():
+#     wlan.disconnect()
+#     print("WLAN will reconnect in ~20s!")
 
 
 def s0():
@@ -346,7 +360,7 @@ def s0():
 
 def s1():
     g.stdout = True
-    print(sensors.header)
+    print(sensors.get_header())
 
 
 def fa():
@@ -358,7 +372,7 @@ def fs():
 
 
 def hd():
-    print(sensors.header)
+    print(sensors.get_header())
 
 
 def h(power: bool):
@@ -406,7 +420,7 @@ def rmo():
     logfile.rm_other_files()
 
 
-def rf():  # Reformat
+def format():  # Reformat
     heater.set_power(False)
 
     # https://www.i-programmer.info/programming/hardware/16334-raspberry-pi-pico-file-system-a-sd-card-reader.html?start=1
@@ -426,11 +440,14 @@ def smp():
 def sm0():
     sm._switch(sm._state_regenerate, "Manual intervention")
 
+
 def sm1():
     sm._switch(sm._state_cooldown, "Manual intervention")
 
+
 def sm2():
     sm._switch(sm._state_drywait, "Manual intervention")
+
 
 def sm3():
     sm._switch(sm._state_dryfan, "Manual intervention")

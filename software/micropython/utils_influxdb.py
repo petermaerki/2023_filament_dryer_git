@@ -55,9 +55,10 @@ def build_payload(measurements, validate=True):
                 for field_name, field_value in measurement["fields"].items():
                     if validate:
                         assert _RE_VALID_CHARACTERS.match(field_name), repr(field_name)
-                        assert _RE_VALID_CHARACTERS.match(field_value), repr(
-                            field_value
-                        )
+                        if not field_value.startswith('"'):
+                            assert _RE_VALID_CHARACTERS.match(field_value), repr(
+                                field_value
+                            )
                     yield f"{field_name}={field_value}"
 
             yield ",".join(iter_tags()) + " " + ",".join(iter_fields())
