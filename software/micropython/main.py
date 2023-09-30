@@ -44,7 +44,7 @@ PIN_GPIO_LED_WHITE = Pin("GPIO19", mode=Pin.OUT)
 PIN_GPIO_HEATER_A = Pin("GPIO7", mode=Pin.OUT)
 PIN_GPIO_HEATER_B = Pin("GPIO2", mode=Pin.OUT)
 
-PIN_GPIO_FAN_AMBIENT = Pin("GPIO0", mode=Pin.OUT)  # ?????
+PIN_GPIO_FAN_AMBIENT = Pin("GPIO0", mode=Pin.OUT)
 PIN_GPIO_FAN_SILICAGEL = Pin("GPIO18", mode=Pin.OUT)
 
 PIN_T_HEATING_1WIRE = Pin("GPIO28")
@@ -101,8 +101,8 @@ class Heater:
 
 heater = Heater()
 
-sensor_ds18_heater = SensorDS18("heater", PIN_T_HEATING_1WIRE)
-# sensor_sht31_spare = SensorSHT31("spare", addr=0x44, i2c=i2c0)
+sensor_ds18_heater = SensorDS18("heater_ds18", PIN_T_HEATING_1WIRE)
+sensor_sht31_spare = SensorSHT31("spare", addr=0x44, i2c=i2c0)
 sensor_sht31_ambient = SensorSHT31("ambient", addr=0x45, i2c=i2c0)
 sensor_sht31_heater = SensorSHT31("heater", addr=0x44, i2c=i2c1)
 sensor_sht31_filament = SensorSHT31("filament", addr=0x45, i2c=i2c1)
@@ -119,7 +119,7 @@ sensors = Sensors(
         sensor_heater_power,
         SensorOnOff("silicagel", "_Fan", PIN_GPIO_FAN_SILICAGEL),
         SensorOnOff("ambient", "_Fan", PIN_GPIO_FAN_AMBIENT),
-        # sensor_sht31_spare,
+        sensor_sht31_spare,
         sensor_sht31_ambient,
         sensor_sht31_heater,
         sensor_sht31_filament,
@@ -184,6 +184,7 @@ class Statemachine:
         heater.set_power(True)
 
     def _state_regenerate(self) -> None:
+        # Controller for the fan
         diff_dew_C = (
             sensor_sht31_heater.measurement_dew_C.value
             - sensor_sht31_ambient.measurement_dew_C.value
@@ -195,6 +196,7 @@ class Statemachine:
             self._regenrate_last_fanon_ms = tb.now_ms
             return
 
+        # Do state change if fan was off for a 'long' time.
         if sensor_ds18_heater.heater_C < config.SM_REGENERATE_HOT_C:
             self._regenrate_last_fanon_ms = tb.now_ms
             return
@@ -295,6 +297,7 @@ stdout_measurements = [
     sensor_sht31_ambient.measurement_H,  # measurement_C, measurement_H, measurement_dew_C
     sensor_sht31_heater.measurement_H,
     sensor_sht31_filament.measurement_H,
+    sensor_sht31_spare.measurement_H,
 ]
 
 
@@ -356,12 +359,44 @@ def main_core2():
 # else:
 #     _thread.start_new_thread(main_core2, ())
 
+# PIN_GPIO_HEATER_A.value(1)
+# PIN_GPIO_HEATER_B.value(1)
+# PIN_GPIO_FAN_AMBIENT.value(1)
+# PIN_GPIO_FAN_SILICAGEL.value(1)
+
+
+import time
+
+class Button:
+    def __init__(self, pin: Pin):
+        pin.irq(self._irq)
+        self._start_ms = time.ticks_ms()
+
+    def _irq(self, p):
+        start_ms = time.ticks_ms()
+        duration_ms = time.ticks_diff(time.ticks_ms(), start_ms)
+        if duration_ms < 5:
+            # Bounce
+            return
+        if duration_ms < 2000:
+            # Short press
+            print("Short")
+            return
+        if duration_ms < 20000:
+            print("Long")
+            return
+
+
+# configure an irq callback
+PIN_GPIO_BUTTON.irq(lambda p: print(p))
+
 
 def thread():
     _thread.start_new_thread(main_core2, ())
 
 
 def main():
+    g.stdout = True
     main_core2()
 
 

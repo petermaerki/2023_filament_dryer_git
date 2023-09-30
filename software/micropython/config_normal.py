@@ -2,7 +2,7 @@ from utils_constants import DURATION_MIN_MS
 
 MEASURE_INTERVAL_MS = const(10000)
 
-HEATER_BOARD_MAX = 95.0  # 110.0
+HEATER_BOARD_MAX = 110.0
 
 # Statemachine
 SM_REGENERATE_DIFF_DEW_C = const(10.0)

@@ -45,3 +45,5 @@ Probleme:
 
 # 2023-09-28 v1.0
   * GPIO_FAN_AMBIENT is missing!
+  * Ambient Sensor: C2 ist unter dem Gehäuse!
+  * Löcher unter Pico sind unnütz!
