@@ -113,7 +113,7 @@ sensors = Sensors(
         SensorOnOff("led_red", "", PIN_GPIO_LED_RED),
         SensorOnOff("led_white", "", PIN_GPIO_LED_WHITE),
         sensor_heater_power,
-        SensorOnOff("silicagel", "_Fan", PIN_GPIO_FAN_SILICAGEL),
+        SensorOnOff("filament", "_Fan", PIN_GPIO_FAN_SILICAGEL),
         SensorOnOff("ambient", "_Fan", PIN_GPIO_FAN_AMBIENT),
         sensor_sht31_spare,
         sensor_sht31_ambient,
@@ -406,21 +406,6 @@ def main_core2():
         tb.sleep()
 
 
-# if False:
-#     PIN_GPIO_LED_GREEN.value(0)
-#     PIN_GPIO_LED_RED.value(0)
-#     PIN_GPIO_LED_WHITE.value(0)
-#     g.stdout = True
-#     # print(sensors.get_header(stdout_measurements))
-#     main_core2()
-# else:
-#     _thread.start_new_thread(main_core2, ())
-
-# PIN_GPIO_HEATER_A.value(1)
-# PIN_GPIO_HEATER_B.value(1)
-# PIN_GPIO_FAN_AMBIENT.value(1)
-# PIN_GPIO_FAN_SILICAGEL.value(1)
-
 
 def pressed(duration_ms: int) -> None:
     sm.set_forward_to_next_state()
@@ -439,6 +424,22 @@ utils_button.Button(
     invers=True,
 )
 
+
+
+if True:
+    PIN_GPIO_LED_GREEN.value(0)
+    PIN_GPIO_LED_RED.value(0)
+    PIN_GPIO_LED_WHITE.value(0)
+    g.stdout = True
+    # print(sensors.get_header(stdout_measurements))
+    main_core2()
+else:
+    _thread.start_new_thread(main_core2, ())
+
+# PIN_GPIO_HEATER_A.value(1)
+# PIN_GPIO_HEATER_B.value(1)
+# PIN_GPIO_FAN_AMBIENT.value(1)
+# PIN_GPIO_FAN_SILICAGEL.value(1)
 
 def thread():
     _thread.start_new_thread(main_core2, ())

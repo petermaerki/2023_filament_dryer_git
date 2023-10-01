@@ -201,9 +201,10 @@ def rel_to_dpt(T: float, P: float, RH: float) -> float:
     import math
 
     # Check input types
-    T = float(T)
-    P = float(P)
-    RH = float(RH)
+    assert isinstance(T, float)
+    assert isinstance(P, float)
+    assert isinstance(RH, float)
+    RH = max(0.1, RH)
 
     # debug
     # print('DEBUG:Input Temperature   (K)  :' + str(T))

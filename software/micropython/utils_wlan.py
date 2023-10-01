@@ -73,9 +73,9 @@ class MQTT:
         self._callbacks = {}
 
     # def create_subscribe_topic(self, subtopic: str) -> bytes:
-    #     return f"filament_driver/{MQTT_CLIENT_ID}/{subtopic}".encode()
+    #     return f"filament_dryer/{MQTT_CLIENT_ID}/{subtopic}".encode()
     def register_callback(self, subtopic: str, cb):
-        topic = f"filament_driver/{secrets.MQTT_CLIENT_ID}/{subtopic}".encode()
+        topic = f"filament_dryer/{secrets.MQTT_CLIENT_ID}/{subtopic}".encode()
         self._callbacks[topic] = cb
 
     def _callback(self, topic: bytes, msg: bytes):

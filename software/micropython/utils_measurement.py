@@ -87,7 +87,7 @@ class SensorSHT31(SensorBase):
     def __init__(self, tag: str, addr: int, i2c: I2C):
         self.measurement_C = Measurement(self, "_C", "C", "{value:0.2f}")
         self.measurement_H = Measurement(self, "_rH", "H", "{value:0.1f}")
-        self.measurement_dew_C = Measurement(self, "_dew", "C", "{value:0.1f}")
+        self.measurement_dew_C = Measurement(self, "_dew_C", "C", "{value:0.1f}")
         SensorBase.__init__(
             self,
             tag=tag,

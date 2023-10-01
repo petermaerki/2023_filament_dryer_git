@@ -47,3 +47,5 @@ Probleme:
   * GPIO_FAN_AMBIENT is missing!
   * Ambient Sensor: C2 ist unter dem Gehäuse!
   * Löcher unter Pico sind unnütz!
+  * silicagel_fan -> filament_fan
+  * Unterhalb Pico: Kein Kupfer wegen Antenne
