@@ -4,3 +4,4 @@ LOGFILE_DELIMITER = "\t"
 DURATION_S_MS = const(1000)
 DURATION_MIN_MS = const(60 * 1000)
 DURATION_H_MS = const(60 * 60 * 1000)
+ 

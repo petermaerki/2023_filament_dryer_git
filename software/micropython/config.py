@@ -17,3 +17,4 @@ SM_DRYFAN_NEXT_MS = 2 * DURATION_MIN_MS  # Interval of elements in list
 SM_DRYFAN_ELEMENTS = const(10)  # 20min = 10 * 2min
 SM_DRYFAN_DIFF_DEW_C = 0.0
 SM_DRYFAN_DEW_SET_C = -2.0
+ 
