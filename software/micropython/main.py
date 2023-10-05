@@ -10,7 +10,7 @@ import utils_wlan
 
 import config
 from utils_constants import DIRECTORY_LOGS
-from utils_log import Logfile, LogfileTags
+from utils_log import LogStdout, LogfileTags
 import utils_button
 from utils_time import Timebase
 from utils_measurement import (
@@ -54,15 +54,8 @@ i2c0 = I2C(id=0, scl=PIN_IC2C0_SCL, sda=PIN_IC2C0_SDA, freq=400000)
 i2c1 = I2C(id=1, scl=PIN_IC2C1_SCL, sda=PIN_IC2C1_SDA, freq=400000)
 
 tb = Timebase(interval_ms=config.MEASURE_INTERVAL_MS)
-logfile = Logfile(timebase=tb)
+logfile = LogStdout(timebase=tb)
 utils_measurement.logfile = logfile
-
-
-class Config:
-    def __init__(self, duration_regenerate_ms: float, duration_dry_ms: float):
-        self.duration_regenerate_ms = duration_regenerate_ms
-        self.duration_dry_ms = duration_dry_ms
-
 
 class Heater:
     def __init__(
@@ -139,7 +132,7 @@ class Statemachine:
     PREFIX_ENTRY = "_entry_"
 
     def __init__(self):
-        self.state = self._state_init
+        self.state = self._state_off
         self.state_name = "none"
         self._start_ms = 0
 
@@ -189,10 +182,6 @@ class Statemachine:
         new_entry_name = self.PREFIX_ENTRY + new_state_name
         f_entry = getattr(self, new_entry_name)
         f_entry()
-
-    # State: INIT
-    def _state_init(self) -> None:
-        self._switch(self._state_off, "Statemachine initialization")
 
     # State: OFF
     def _entry_off(self) -> None:
@@ -308,7 +297,7 @@ class Statemachine:
                 )
                 self._dryfan_list_dew_C.pop()
                 if reduction_dew_C < config.SM_DRYFAN_DIFF_DEW_C:
-                    why = f"reduction_dew_C {reduction_dew_C:0.1f}C < SM_DRYFAN_DIFF_DEW_C {config.SM_DRYFAN_DIFF_DEW_C:0.1f}C AND sht31_board.measurement_dew_C {sensor_sht31_filament.measurement_dew_C.value:0.1f}C > SM_DRYFAN_DEW_SET_C {config.SM_DRYFAN_DEW_SET_C:0.1f}C"
+                    why = f"reduction_dew_C {reduction_dew_C:0.1f}C < SM_DRYFAN_DIFF_DEW_C {config.SM_DRYFAN_DIFF_DEW_C:0.1f}C AND filament_dew_C {sensor_sht31_filament.measurement_dew_C.value:0.1f}C > SM_DRYFAN_DEW_SET_C {config.SM_DRYFAN_DEW_SET_C:0.1f}C"
                     if (
                         sensor_sht31_filament.measurement_dew_C.value
                         > config.SM_DRYFAN_DEW_SET_C
