@@ -4,11 +4,11 @@ import _thread
 from utils_constants import DIRECTORY_LOGS, LOGFILE_DELIMITER
 
 from utils_log import LogfileTags
+from utils_time import tb
 
 
 class Logfile:
-    def __init__(self, timebase: "Timebase"):
-        self.timebase = timebase
+    def __init__(self):
         self.filename: str = None
         try:
             os.mkdir(f"{DIRECTORY_LOGS}")
@@ -36,7 +36,7 @@ class Logfile:
     def log(self, tag: str, line: str, stdout: bool = False):
         full_line = LOGFILE_DELIMITER.join(
             (
-                str(self.timebase.now_ms),
+                str(tb.now_ms),
                 tag,
                 line,
             )

@@ -7,13 +7,12 @@ micropython.alloc_emergency_exception_buf(100)
 import utils_wlan
 
 import config
-from utils_logstdout import LogStdout
-from utils_log import LogfileTags
 import utils_button
+from utils_logstdout import logfile
+from utils_log import LogfileTags
+from utils_time import tb
 from mod_hardware import Hardware
 from mod_sensoren import Sensoren
-from utils_time import Timebase
-import utils_measurement
 
 WHY_FORWARD = "User Button: Forward to next state"
 
@@ -26,10 +25,6 @@ class Globals:
 
 g = Globals()
 
-
-tb = Timebase(interval_ms=config.MEASURE_INTERVAL_MS)
-logfile = LogStdout(timebase=tb)
-utils_measurement.logfile = logfile
 
 hardware = Hardware()
 sensoren = Sensoren(hardware=hardware)

@@ -1,5 +1,6 @@
 import time
 
+import config
 
 class Timebase:
     def __init__(self, interval_ms: int):
@@ -22,3 +23,5 @@ class Timebase:
             time.sleep_ms(sleep_ms)
 
         self.sleep_done_ms = time.ticks_diff(time.ticks_ms(), self.start_ms)
+
+tb = Timebase(interval_ms=config.MEASURE_INTERVAL_MS)

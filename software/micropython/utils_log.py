@@ -7,3 +7,4 @@ class LogfileTags:
     LOG_WARNING = "LOG_WARNING"
     LOG_INFO = "LOG_INFO"
     LOG_DEBUG = "LOG_DEBUG"
+
