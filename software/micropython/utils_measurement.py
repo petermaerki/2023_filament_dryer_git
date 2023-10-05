@@ -1,11 +1,11 @@
 import time
-
+from machine import Pin, I2C
 import lib_sht31
 import onewire
 from ds18x20 import DS18X20
 
 from utils_humidity import rel_to_dpt
-from utils_log import Logfile, LogfileTags
+from utils_log import LogfileTags
 from utils_constants import LOGFILE_DELIMITER
 
 logfile = None

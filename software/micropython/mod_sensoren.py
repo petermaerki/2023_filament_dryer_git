@@ -49,3 +49,20 @@ class Sensoren:
             self.sensor_sht31_filament.measurement_H,
             self.sensor_sht31_spare.measurement_H,
         ]
+
+    def measure(self) -> None:
+        self.sensors.measure()
+
+    @property
+    def heater_C(self) -> float:
+        return self.sensor_ds18_heater.heater_C
+    
+    @property
+    def filament_dew_C(self) -> float:
+        return self.sensor_sht31_filament.measurement_dew_C.value
+    @property
+    def heater_dew_C(self) -> float:
+        return self.sensor_sht31_heater.measurement_dew_C.value
+    @property
+    def ambient_dew_C(self) -> float:
+        return self.sensor_sht31_ambient.measurement_dew_C.value

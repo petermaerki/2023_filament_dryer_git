@@ -1,7 +1,5 @@
-from machine import Pin, I2C, reset
+from machine import reset
 import micropython
-import os
-import gc
 import _thread
 
 micropython.alloc_emergency_exception_buf(100)
@@ -9,13 +7,15 @@ micropython.alloc_emergency_exception_buf(100)
 import utils_wlan
 
 import config
-from utils_constants import DIRECTORY_LOGS
-from utils_log import LogStdout, LogfileTags
+from utils_logstdout import LogStdout
+from utils_log import LogfileTags
 import utils_button
-from mod_hardware import Hardware, Heater
+from mod_hardware import Hardware
 from mod_sensoren import Sensoren
 from utils_time import Timebase
 import utils_measurement
+
+WHY_FORWARD = "User Button: Forward to next state"
 
 
 class Globals:
@@ -104,7 +104,7 @@ class Statemachine:
 
     def _state_off(self) -> None:
         if self.forward_to_next_state:
-            self._switch(self._state_regenerate, "Forward to next state")
+            self._switch(self._state_regenerate, WHY_FORWARD)
 
     # State: REGENERATE
     def _entry_regenerate(self) -> None:
@@ -119,14 +119,11 @@ class Statemachine:
 
     def _state_regenerate(self) -> None:
         if self.forward_to_next_state:
-            self._switch(self._state_cooldown, "Forward to next state")
+            self._switch(self._state_cooldown, WHY_FORWARD)
             return
 
         # Controller for the fan
-        diff_dew_C = (
-            sensoren.sensor_sht31_heater.measurement_dew_C.value
-            - sensoren.sensor_sht31_ambient.measurement_dew_C.value
-        )
+        diff_dew_C = sensoren.heater_dew_C - sensoren.ambient_dew_C
         fan_on = diff_dew_C > config.SM_REGENERATE_DIFF_DEW_C
         hardware.PIN_GPIO_FAN_AMBIENT.value(fan_on)
 
@@ -135,7 +132,7 @@ class Statemachine:
             return
 
         # Do state change if fan was off for a 'long' time.
-        if sensoren.sensor_ds18_heater.heater_C < config.SM_REGENERATE_HOT_C:
+        if sensoren.heater_C < config.SM_REGENERATE_HOT_C:
             self._regenrate_last_fanon_ms = tb.now_ms
             return
 
@@ -157,10 +154,10 @@ class Statemachine:
 
     def _state_cooldown(self) -> None:
         if self.forward_to_next_state:
-            self._switch(self._state_dryfan, "Forward to next state")
+            self._switch(self._state_dryfan, WHY_FORWARD)
             return
 
-        heater_C = sensoren.sensor_ds18_heater.heater_C
+        heater_C = sensoren.heater_C
         if heater_C < config.SM_COOLDOWN_TEMPERATURE_HEATER_C:
             self._switch(
                 self._state_dryfan,
@@ -181,19 +178,17 @@ class Statemachine:
 
     def _state_dryfan(self) -> None:
         if self.forward_to_next_state:
-            self._switch(self._state_drywait, "Forward to next state")
+            self._switch(self._state_drywait, WHY_FORWARD)
             return
 
         if tb.now_ms >= self._dryfan_next_ms:
             logfile.log(
                 LogfileTags.LOG_INFO,
-                f"len={len(self._dryfan_list_dew_C)}, append({sensoren.sensor_sht31_filament.measurement_dew_C.value})",
+                f"len={len(self._dryfan_list_dew_C)}, append({sensoren.filament_dew_C})",
                 stdout=True,
             )
             self._dryfan_next_ms += config.SM_DRYFAN_NEXT_MS
-            self._dryfan_list_dew_C.insert(
-                0, sensoren.sensor_sht31_filament.measurement_dew_C.value
-            )
+            self._dryfan_list_dew_C.insert(0, sensoren.filament_dew_C)
 
             if len(self._dryfan_list_dew_C) > config.SM_DRYFAN_ELEMENTS:
                 reduction_dew_C = (
@@ -206,11 +201,8 @@ class Statemachine:
                 )
                 self._dryfan_list_dew_C.pop()
                 if reduction_dew_C < config.SM_DRYFAN_DIFF_DEW_C:
-                    why = f"reduction_dew_C {reduction_dew_C:0.1f}C < SM_DRYFAN_DIFF_DEW_C {config.SM_DRYFAN_DIFF_DEW_C:0.1f}C AND filament_dew_C {sensoren.sensor_sht31_filament.measurement_dew_C.value:0.1f}C > SM_DRYFAN_DEW_SET_C {config.SM_DRYFAN_DEW_SET_C:0.1f}C"
-                    if (
-                        sensoren.sensor_sht31_filament.measurement_dew_C.value
-                        > config.SM_DRYFAN_DEW_SET_C
-                    ):
+                    why = f"reduction_dew_C {reduction_dew_C:0.1f}C < SM_DRYFAN_DIFF_DEW_C {config.SM_DRYFAN_DIFF_DEW_C:0.1f}C AND filament_dew_C {sensoren.filament_dew_C:0.1f}C > SM_DRYFAN_DEW_SET_C {config.SM_DRYFAN_DEW_SET_C:0.1f}C"
+                    if sensoren.filament_dew_C > config.SM_DRYFAN_DEW_SET_C:
                         self._switch(self._state_regenerate, why)
                         return
                     self._switch(
@@ -225,9 +217,7 @@ class Statemachine:
         hardware.PIN_GPIO_FAN_SILICAGEL.off()
         hardware.PIN_GPIO_FAN_AMBIENT.off()
         hardware.heater.set_power(False)
-        self._dry_wait_filament_dew_C = (
-            sensoren.sensor_sht31_filament.measurement_dew_C.value
-        )
+        self._dry_wait_filament_dew_C = sensoren.filament_dew_C
 
         hardware.PIN_GPIO_LED_GREEN.value(1)
         hardware.PIN_GPIO_LED_RED.value(0)
@@ -235,14 +225,11 @@ class Statemachine:
 
     def _state_drywait(self) -> None:
         if self.forward_to_next_state:
-            self._switch(self._state_off, "Forward to next state")
+            self._switch(self._state_off, WHY_FORWARD)
             return
 
         # diff_dew_C ist positiv wenn der Taupunkt zunimmt
-        diff_dew_C = (
-            sensoren.sensor_sht31_filament.measurement_dew_C.value
-            - self._dry_wait_filament_dew_C
-        )
+        diff_dew_C = sensoren.filament_dew_C - self._dry_wait_filament_dew_C
         switch_to_fan_on = diff_dew_C > config.SM_DRYWAIT_DIFF_DEW_C
 
         if switch_to_fan_on:
@@ -285,10 +272,10 @@ def main_core2():
     logfile.log(LogfileTags.SENSORS_HEADER, sensoren.sensors.get_header())
 
     while True:
-        sensoren.sensors.measure()
+        sensoren.measure()
 
         sm.state()
-        hardware.heater.set_board_C(board_C=sensoren.sensor_ds18_heater.heater_C)
+        hardware.heater.set_board_C(board_C=sensoren.heater_C)
 
         # logfile.log(LogfileTags.LOG_DEBUG, f"{tb.sleep_done_ms}, {tb.sleep_done_ms}")
         logfile.log(
