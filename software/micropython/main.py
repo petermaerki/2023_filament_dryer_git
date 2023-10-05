@@ -32,8 +32,7 @@ logfile = LogStdout(timebase=tb)
 utils_measurement.logfile = logfile
 
 hardware = Hardware()
-heater = Heater(hardware=hardware)
-sensoren = Sensoren(hardware=hardware, heater=heater)
+sensoren = Sensoren(hardware=hardware)
 
 
 class Statemachine:
@@ -97,7 +96,7 @@ class Statemachine:
     def _entry_off(self) -> None:
         hardware.PIN_GPIO_FAN_AMBIENT.off()
         hardware.PIN_GPIO_FAN_SILICAGEL.off()
-        heater.set_power(False)
+        hardware.heater.set_power(False)
 
         hardware.PIN_GPIO_LED_GREEN.value(1)
         hardware.PIN_GPIO_LED_RED.value(1)
@@ -112,7 +111,7 @@ class Statemachine:
         self._regenrate_last_fanon_ms = 0
         hardware.PIN_GPIO_FAN_AMBIENT.off()
         hardware.PIN_GPIO_FAN_SILICAGEL.off()
-        heater.set_power(True)
+        hardware.heater.set_power(True)
 
         hardware.PIN_GPIO_LED_GREEN.value(0)
         hardware.PIN_GPIO_LED_RED.value(1)
@@ -150,7 +149,7 @@ class Statemachine:
     def _entry_cooldown(self) -> None:
         hardware.PIN_GPIO_FAN_SILICAGEL.off()
         hardware.PIN_GPIO_FAN_AMBIENT.off()
-        heater.set_power(False)
+        hardware.heater.set_power(False)
 
         hardware.PIN_GPIO_LED_GREEN.value(0)
         hardware.PIN_GPIO_LED_RED.value(1)
@@ -172,7 +171,7 @@ class Statemachine:
     def _entry_dryfan(self) -> None:
         hardware.PIN_GPIO_FAN_SILICAGEL.on()
         hardware.PIN_GPIO_FAN_AMBIENT.off()
-        heater.set_power(False)
+        hardware.heater.set_power(False)
         self._dryfan_list_dew_C = []
         self._dryfan_next_ms = tb.now_ms
 
@@ -225,7 +224,7 @@ class Statemachine:
     def _entry_drywait(self) -> None:
         hardware.PIN_GPIO_FAN_SILICAGEL.off()
         hardware.PIN_GPIO_FAN_AMBIENT.off()
-        heater.set_power(False)
+        hardware.heater.set_power(False)
         self._dry_wait_filament_dew_C = (
             sensoren.sensor_sht31_filament.measurement_dew_C.value
         )
@@ -289,7 +288,7 @@ def main_core2():
         sensoren.sensors.measure()
 
         sm.state()
-        heater.set_board_C(board_C=sensoren.sensor_ds18_heater.heater_C)
+        hardware.heater.set_board_C(board_C=sensoren.sensor_ds18_heater.heater_C)
 
         # logfile.log(LogfileTags.LOG_DEBUG, f"{tb.sleep_done_ms}, {tb.sleep_done_ms}")
         logfile.log(

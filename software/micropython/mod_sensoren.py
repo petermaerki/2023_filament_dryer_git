@@ -11,7 +11,7 @@ from utils_measurement import (
 
 
 class Sensoren:
-    def __init__(self, hardware: Hardware, heater=Heater):
+    def __init__(self, hardware: Hardware):
         self.sensor_ds18_heater = SensorDS18(
             "heater_ds18", hardware.PIN_T_HEATING_1WIRE
         )
@@ -21,7 +21,7 @@ class Sensoren:
         self.sensor_sht31_filament = SensorSHT31(
             "filament", addr=0x45, i2c=hardware.i2c1
         )
-        self.sensor_heater_power = SensorHeater("heater", heater)
+        self.sensor_heater_power = SensorHeater("heater", hardware.heater)
         self.sensor_statemachine = SensorStatemachine()
         self.sensors = Sensors(
             sensors=[
