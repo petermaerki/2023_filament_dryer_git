@@ -35,7 +35,6 @@ class Statemachine:
     PREFIX_ENTRY = "_entry_"
 
     def __init__(self):
-        self.state_name = "none"
         self._start_ms = 0
 
         self._regenrate_last_fanon_ms = 0
@@ -43,6 +42,8 @@ class Statemachine:
         self._dryfan_next_ms = 0
         self._forward_to_next_state = False
         self.statechange_cb = lambda state, new_state, why: state
+        # Attention: The three following lines have to match the same state
+        self.state_name = "off"
         self.state = self._state_off
         self._entry_off()
 

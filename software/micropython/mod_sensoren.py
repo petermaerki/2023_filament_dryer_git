@@ -7,11 +7,13 @@ from utils_measurement import (
     SensorHeater,
     Sensors,
     SensorStatemachine,
+    SensorUptime,
 )
 
 
 class Sensoren:
     def __init__(self, hardware: Hardware):
+        self.sensor_uptime = SensorUptime()
         self.sensor_ds18_heater = SensorDS18(
             "heater_ds18", hardware.PIN_T_HEATING_1WIRE
         )
@@ -25,6 +27,7 @@ class Sensoren:
         self.sensor_statemachine = SensorStatemachine()
         self.sensors = Sensors(
             sensors=[
+                self.sensor_uptime,
                 self.sensor_statemachine,
                 SensorOnOff("button", "", hardware.PIN_GPIO_BUTTON, inverse=True),
                 SensorOnOff("led_green", "", hardware.PIN_GPIO_LED_GREEN),
@@ -56,13 +59,15 @@ class Sensoren:
     @property
     def heater_C(self) -> float:
         return self.sensor_ds18_heater.heater_C
-    
+
     @property
     def filament_dew_C(self) -> float:
         return self.sensor_sht31_filament.measurement_dew_C.value
+
     @property
     def heater_dew_C(self) -> float:
         return self.sensor_sht31_heater.measurement_dew_C.value
+
     @property
     def ambient_dew_C(self) -> float:
         return self.sensor_sht31_ambient.measurement_dew_C.value

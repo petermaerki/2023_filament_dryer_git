@@ -6,9 +6,9 @@ from ds18x20 import DS18X20
 
 from utils_humidity import rel_to_dpt
 from utils_log import LogfileTags
+from utils_time import tb
 from utils_constants import LOGFILE_DELIMITER
-
-logfile = None
+from utils_logstdout import logfile
 
 
 class Measurement:
@@ -178,6 +178,15 @@ class SensorStatemachine(SensorBase):
     def measure2(self):
         assert self._sm is not None
         self.measurement_string.value = self._sm.state_name
+
+
+class SensorUptime(SensorBase):
+    def __init__(self):
+        self.measurement = Measurement(self, "_h", "h", "{value:0.0f}")
+        SensorBase.__init__(self, tag="uptime", measurements=[self.measurement])
+
+    def measure2(self):
+        self.measurement.value = tb.now_ms / 3_600_000.0
 
 
 class Sensors:
