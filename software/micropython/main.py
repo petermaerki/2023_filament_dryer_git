@@ -1,20 +1,26 @@
-from machine import reset
+import os
+from rp2 import Flash
+import os
+import gc
+import machine
 import micropython
 import _thread
+
 
 micropython.alloc_emergency_exception_buf(100)
 
 import utils_wlan
 
-import config
 import utils_button
+import utils_wlan
+from utils_wdt import wdt
 from utils_logstdout import logfile
 from utils_log import LogfileTags
-from utils_time import tb
+from utils_timebase import tb
 from mod_hardware import Hardware
 from mod_sensoren import Sensoren
-
-WHY_FORWARD = "User Button: Forward to next state"
+from mod_statemachine import Statemachine
+from utils_constants import DIRECTORY_LOGS, DURATION_H_MS
 
 
 class Globals:
@@ -30,211 +36,7 @@ hardware = Hardware()
 sensoren = Sensoren(hardware=hardware)
 
 
-class Statemachine:
-    PREFIX_STATE = "_state_"
-    PREFIX_ENTRY = "_entry_"
-
-    def __init__(self):
-        self._start_ms = 0
-
-        self._regenrate_last_fanon_ms = 0
-        self._dryfan_list_dew_C = []
-        self._dryfan_next_ms = 0
-        self._forward_to_next_state = False
-        self.statechange_cb = lambda state, new_state, why: state
-        # Attention: The three following lines have to match the same state
-        self.state_name = "off"
-        self.state = self._state_off
-        self._entry_off()
-
-    def set_forward_to_next_state(self) -> None:
-        self._forward_to_next_state = True
-        self.state()
-
-    @property
-    def forward_to_next_state(self) -> bool:
-        if self._forward_to_next_state:
-            self._forward_to_next_state = False
-            return True
-        return False
-
-    @property
-    def duration_ms(self) -> int:
-        return tb.now_ms - self._start_ms
-
-    def switch_by_name(self, new_state: str) -> None:
-        state_name = f"_state_{new_state}"
-        print(f"state_name: '{state_name}'")
-        try:
-            state_func = getattr(self, state_name)
-        except AttributeError as e:
-            print(f"WARNING: Unexisting state '{state_name}'!")
-            return
-        self._switch(state_func, "MQTT intervention")
-
-    def _switch(self, new_state, why: str) -> None:
-        assert new_state.__name__.startswith(self.PREFIX_STATE)
-        new_state_name = new_state.__name__.replace(self.PREFIX_STATE, "")
-        if self.state_name == new_state_name:
-            return
-        msg = f"'{self.state_name}' -> '{new_state_name}' {why}"
-        logfile.log(LogfileTags.SM_STATE, msg, stdout=True)
-        self.statechange_cb(self.state_name, new_state_name, why)
-        self.state_name = new_state_name
-        self.state = new_state
-        self._start_ms = tb.now_ms
-
-        new_entry_name = self.PREFIX_ENTRY + new_state_name
-        f_entry = getattr(self, new_entry_name)
-        f_entry()
-
-    # State: OFF
-    def _entry_off(self) -> None:
-        hardware.PIN_GPIO_FAN_AMBIENT.off()
-        hardware.PIN_GPIO_FAN_SILICAGEL.off()
-        hardware.heater.set_power(False)
-
-        hardware.PIN_GPIO_LED_GREEN.value(1)
-        hardware.PIN_GPIO_LED_RED.value(1)
-        hardware.PIN_GPIO_LED_WHITE.value(1)
-
-    def _state_off(self) -> None:
-        if self.forward_to_next_state:
-            self._switch(self._state_regenerate, WHY_FORWARD)
-
-    # State: REGENERATE
-    def _entry_regenerate(self) -> None:
-        self._regenrate_last_fanon_ms = 0
-        hardware.PIN_GPIO_FAN_AMBIENT.off()
-        hardware.PIN_GPIO_FAN_SILICAGEL.off()
-        hardware.heater.set_power(True)
-
-        hardware.PIN_GPIO_LED_GREEN.value(0)
-        hardware.PIN_GPIO_LED_RED.value(1)
-        hardware.PIN_GPIO_LED_WHITE.value(0)
-
-    def _state_regenerate(self) -> None:
-        if self.forward_to_next_state:
-            self._switch(self._state_cooldown, WHY_FORWARD)
-            return
-
-        # Controller for the fan
-        diff_dew_C = sensoren.heater_dew_C - sensoren.ambient_dew_C
-        fan_on = diff_dew_C > config.SM_REGENERATE_DIFF_DEW_C
-        hardware.PIN_GPIO_FAN_AMBIENT.value(fan_on)
-
-        if fan_on:
-            self._regenrate_last_fanon_ms = tb.now_ms
-            return
-
-        # Do state change if fan was off for a 'long' time.
-        if sensoren.heater_C < config.SM_REGENERATE_HOT_C:
-            self._regenrate_last_fanon_ms = tb.now_ms
-            return
-
-        duration_fan_off_ms = tb.now_ms - self._regenrate_last_fanon_ms
-        assert duration_fan_off_ms >= 0
-        if duration_fan_off_ms > config.SM_REGENERATE_NOFAN_MS:
-            why = f"duration_fan_off_ms {duration_fan_off_ms}ms > SM_REGENERATE_NOFAN_MS {config.SM_REGENERATE_NOFAN_MS}ms"
-            self._switch(self._state_cooldown, why)
-
-    # State: COOL DOWN
-    def _entry_cooldown(self) -> None:
-        hardware.PIN_GPIO_FAN_SILICAGEL.off()
-        hardware.PIN_GPIO_FAN_AMBIENT.off()
-        hardware.heater.set_power(False)
-
-        hardware.PIN_GPIO_LED_GREEN.value(0)
-        hardware.PIN_GPIO_LED_RED.value(1)
-        hardware.PIN_GPIO_LED_WHITE.value(1)
-
-    def _state_cooldown(self) -> None:
-        if self.forward_to_next_state:
-            self._switch(self._state_dryfan, WHY_FORWARD)
-            return
-
-        heater_C = sensoren.heater_C
-        if heater_C < config.SM_COOLDOWN_TEMPERATURE_HEATER_C:
-            self._switch(
-                self._state_dryfan,
-                f"heater_C {heater_C:0.1f}C < SM_COOLDOWN_TEMPERATURE_HEATER_C {config.SM_COOLDOWN_TEMPERATURE_HEATER_C:0.1f}C",
-            )
-
-    # State: DRY FAN
-    def _entry_dryfan(self) -> None:
-        hardware.PIN_GPIO_FAN_SILICAGEL.on()
-        hardware.PIN_GPIO_FAN_AMBIENT.off()
-        hardware.heater.set_power(False)
-        self._dryfan_list_dew_C = []
-        self._dryfan_next_ms = tb.now_ms
-
-        hardware.PIN_GPIO_LED_GREEN.value(0)
-        hardware.PIN_GPIO_LED_RED.value(0)
-        hardware.PIN_GPIO_LED_WHITE.value(1)
-
-    def _state_dryfan(self) -> None:
-        if self.forward_to_next_state:
-            self._switch(self._state_drywait, WHY_FORWARD)
-            return
-
-        if tb.now_ms >= self._dryfan_next_ms:
-            logfile.log(
-                LogfileTags.LOG_INFO,
-                f"len={len(self._dryfan_list_dew_C)}, append({sensoren.filament_dew_C})",
-                stdout=True,
-            )
-            self._dryfan_next_ms += config.SM_DRYFAN_NEXT_MS
-            self._dryfan_list_dew_C.insert(0, sensoren.filament_dew_C)
-
-            if len(self._dryfan_list_dew_C) > config.SM_DRYFAN_ELEMENTS:
-                reduction_dew_C = (
-                    self._dryfan_list_dew_C[-1] - self._dryfan_list_dew_C[0]
-                )
-                logfile.log(
-                    LogfileTags.LOG_INFO,
-                    f"reduction_dew_C={reduction_dew_C:0.1f}",
-                    stdout=True,
-                )
-                self._dryfan_list_dew_C.pop()
-                if reduction_dew_C < config.SM_DRYFAN_DIFF_DEW_C:
-                    why = f"reduction_dew_C {reduction_dew_C:0.1f}C < SM_DRYFAN_DIFF_DEW_C {config.SM_DRYFAN_DIFF_DEW_C:0.1f}C AND filament_dew_C {sensoren.filament_dew_C:0.1f}C > SM_DRYFAN_DEW_SET_C {config.SM_DRYFAN_DEW_SET_C:0.1f}C"
-                    if sensoren.filament_dew_C > config.SM_DRYFAN_DEW_SET_C:
-                        self._switch(self._state_regenerate, why)
-                        return
-                    self._switch(
-                        self._state_drywait,
-                        why.replace(
-                            "C > SM_DRYFAN_DEW_SET_C", "C <= SM_DRYFAN_DEW_SET_C"
-                        ),
-                    )
-
-    # State: DRY WAIT
-    def _entry_drywait(self) -> None:
-        hardware.PIN_GPIO_FAN_SILICAGEL.off()
-        hardware.PIN_GPIO_FAN_AMBIENT.off()
-        hardware.heater.set_power(False)
-        self._dry_wait_filament_dew_C = sensoren.filament_dew_C
-
-        hardware.PIN_GPIO_LED_GREEN.value(1)
-        hardware.PIN_GPIO_LED_RED.value(0)
-        hardware.PIN_GPIO_LED_WHITE.value(0)
-
-    def _state_drywait(self) -> None:
-        if self.forward_to_next_state:
-            self._switch(self._state_off, WHY_FORWARD)
-            return
-
-        # diff_dew_C ist positiv wenn der Taupunkt zunimmt
-        diff_dew_C = sensoren.filament_dew_C - self._dry_wait_filament_dew_C
-        switch_to_fan_on = diff_dew_C > config.SM_DRYWAIT_DIFF_DEW_C
-
-        if switch_to_fan_on:
-            self._switch(
-                self._state_dryfan, f"dew filament increased by {diff_dew_C:0.1f}C"
-            )
-
-
-sm = Statemachine()
+sm = Statemachine(hardware=hardware, sensoren=sensoren)
 sensoren.sensor_statemachine.set_sm(sm=sm)
 
 
@@ -244,12 +46,10 @@ sensoren.sensor_statemachine.set_sm(sm=sm)
 def main_core2():
     print("filament_dryer started")
 
-    # Wait for main thread to completely load the module
-    # import time
-    # time.sleep(1)
-
+    wdt.enable()
     # Make sure, 'wlan' and 'mqtt' are instantiated in the thread which will access them
     wlan = utils_wlan.WLAN()
+    wlan.connect()
     mqtt = utils_wlan.MQTT(wlan)
 
     def statechange(old: str, new: str, why: str) -> None:
@@ -265,7 +65,7 @@ def main_core2():
 
     mqtt.register_callback("statemachine", statemachine_cb)
 
-    logfile.log(LogfileTags.SENSORS_HEADER, sensoren.sensors.get_header())
+    # logfile.log(LogfileTags.SENSORS_HEADER, sensoren.sensors.get_header())
 
     while True:
         sensoren.measure()
@@ -291,6 +91,10 @@ def main_core2():
 
         tb.sleep()
 
+        if mqtt.duration_since_last_access_ms > DURATION_H_MS:
+            print(f"Wlan or mqtt was down for {DURATION_H_MS}ms, so lets reboot and retry!")
+            machine.reset()
+
 
 def pressed(duration_ms: int) -> None:
     sm.set_forward_to_next_state()
@@ -298,7 +102,7 @@ def pressed(duration_ms: int) -> None:
 
 def long_pressed(timer) -> None:
     # Hard reset micropython
-    reset()
+    machine.reset()
 
 
 utils_button.Button(
@@ -310,16 +114,6 @@ utils_button.Button(
 )
 
 
-if True:
-    # hardware.PIN_GPIO_LED_GREEN.value(0)
-    # hardware.PIN_GPIO_LED_RED.value(0)
-    # hardware.PIN_GPIO_LED_WHITE.value(0)
-    g.stdout = True
-    # print(sensors.get_header(stdout_measurements))
-    main_core2()
-else:
-    _thread.start_new_thread(main_core2, ())
-
 # PIN_GPIO_HEATER_A.value(1)
 # PIN_GPIO_HEATER_B.value(1)
 # PIN_GPIO_FAN_AMBIENT.value(1)
@@ -328,6 +122,16 @@ else:
 
 def thread():
     _thread.start_new_thread(main_core2, ())
+
+
+def values():
+    print(sensoren.sensors.get_header(measurements=sensoren.stdout_measurements))
+    print(sensoren.sensors.get_values(measurements=sensoren.stdout_measurements))
+
+
+def valuesall():
+    print(sensoren.sensors.get_header())
+    print(sensoren.sensors.get_values())
 
 
 # def main():
@@ -364,75 +168,59 @@ def thread():
 #     g.stop_thread = True
 
 
-# def df():  # Disk Free
-#     print("*** Garbage")
-#     print(
-#         f"Allocated/Free {gc.mem_alloc()/1000.0:0.3f}/{gc.mem_free()/1000.0:0.3f} kBytes"
-#     )
-#     gc.collect()
-#     print(
-#         f"Allocated/Free {gc.mem_alloc()/1000.0:0.3f}/{gc.mem_free()/1000.0:0.3f} kBytes"
-#     )
+def df():  # Disk Free
+    print("*** Garbage")
+    print(
+        f"Allocated/Free {gc.mem_alloc()/1000.0:0.3f}/{gc.mem_free()/1000.0:0.3f} kBytes"
+    )
+    gc.collect()
+    print(
+        f"Allocated/Free {gc.mem_alloc()/1000.0:0.3f}/{gc.mem_free()/1000.0:0.3f} kBytes"
+    )
 
-#     print("*** Filesystem")
-#     logfile.flush()
-#     (
-#         f_bsize,
-#         f_frsize,
-#         f_blocks,
-#         f_bfree,
-#         f_bavail,
-#         f_files,
-#         f_ffree,
-#         f_favail,
-#         f_flag,
-#         f_namemax,
-#     ) = os.statvfs(DIRECTORY_LOGS)
-#     print(f"File system size total:  {f_blocks*f_frsize/1024.0} kBytes")
-#     print(f"File system size free:  {f_bavail*f_bsize/1024.0} kBytes")
-#     print(f"File system inodes free:  {f_favail}/{f_ffree} inodes")
+    print("*** Filesystem")
+    logfile.flush()
+    (
+        f_bsize,
+        f_frsize,
+        f_blocks,
+        f_bfree,
+        f_bavail,
+        f_files,
+        f_ffree,
+        f_favail,
+        f_flag,
+        f_namemax,
+    ) = os.statvfs(DIRECTORY_LOGS)
+    print(f"File system size total:  {f_blocks*f_frsize/1024.0} kBytes")
+    print(f"File system size free:  {f_bavail*f_bsize/1024.0} kBytes")
+    print(f"File system inodes free:  {f_favail}/{f_ffree} inodes")
 
-#     print("*** Logfiles")
-#     for name, type, inode, size in os.ilistdir("logs"):
-#         print(f"{DIRECTORY_LOGS}/{name}: {size} bytes")
-
-
-# def rmo():
-#     logfile.rm_other_files()
+    # print("*** Logfiles")
+    # for name, type, inode, size in os.ilistdir("logs"):
+    #     print(f"{DIRECTORY_LOGS}/{name}: {size} bytes")
 
 
-# def format():  # Reformat
-#     heater.set_power(False)
+def format():  # Reformat
+    hardware.heater.set_power(False)
 
-#     # https://www.i-programmer.info/programming/hardware/16334-raspberry-pi-pico-file-system-a-sd-card-reader.html?start=1
-#     from rp2 import Flash
-
-#     flash = Flash()
-#     os.umount("/")
-#     os.VfsLfs2.mkfs(flash)
-#     os.mount(flash, "/")
-#     machine.soft_reset()
+    # https://www.i-programmer.info/programming/hardware/16334-raspberry-pi-pico-file-system-a-sd-card-reader.html?start=1
+    flash = Flash()
+    os.umount("/")
+    os.VfsLfs2.mkfs(flash)
+    os.mount(flash, "/")
+    machine.soft_reset()
 
 
-# def smp():
-#     print(sm.state_name)
+def smp():
+    print(sm.state_name)
 
 
-# def smx(new_state: str):
-#     sm.switch_by_name(new_state)
+def smx(new_state: str):
+    sm.switch_by_name(new_state)
 
-
-# def sm0():
-#     sm._switch(sm._state_regenerate, "Manual intervention")
-
-
-# def sm1():
-#     sm._switch(sm._state_cooldown, "Manual intervention")
-
-
-# def sm2():
-#     sm._switch(sm._state_drywait, "Manual intervention")
-
-
-# def sm3():
-#     sm._switch(sm._state_dryfan, "Manual intervention")
+# g.stdout = True
+if True:
+    main_core2()
+else:
+    _thread.start_new_thread(main_core2, ())

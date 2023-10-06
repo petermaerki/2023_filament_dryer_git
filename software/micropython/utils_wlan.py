@@ -1,21 +1,28 @@
 import time
+import rp2
 import network
 from utils_umqtt import MQTTClient
 
 import secrets
 import utils_influxdb
+from utils_wdt import TimerWdt
+
+# https://github.com/micropython/micropython/issues/11977
+country = const("CH")
+rp2.country(country)
+network.country(country)
 
 
 class WLAN:
     def __init__(self):
-        self.sta_fi = None
+        self._wlan = None
 
     def _find_ssid(self):
         """
         returns (ssid, password)
         or (None, None)
         """
-        for ssid, bssid, channel, RSSI, security, hidden in self.sta_fi.scan():
+        for ssid, bssid, channel, RSSI, security, hidden in self._wlan.scan():
             for _ssid, password in secrets.SSID_CREDENTIALS:
                 assert isinstance(_ssid, bytes), _ssid
                 # print("ssid", ssid, _ssid)
@@ -25,40 +32,60 @@ class WLAN:
             print("WARNING: WLANs.scan() returned empty list!")
         return (None, None)
 
-    def connect(self) -> bool:
+    @property
+    def is_connected(self) -> bool:
         """
         Return True if connected
         """
-        try:
-            if self.sta_fi is None:
-                self.sta_fi = network.WLAN(network.STA_IF)
-                self.sta_fi.active(True)
+        return self._wlan is not None
 
-            if self.sta_fi.isconnected():
+    def connect(self) -> bool:
+        """
+        Return True if connection could be established
+        """
+        with TimerWdt(duration_ms=20000):
+            success = self.connect_()
+        if not success:
+            self._wlan.deinit()
+            self._wlan.active(False)
+            self._wlan = None
+        return success
+
+    def connect_(self) -> bool:
+        """
+        Return True if connection could be established
+        """
+        try:
+            print(f"connecting WLAN ...")
+            if self._wlan is None:
+                self._wlan = network.WLAN(network.STA_IF)
+                self._wlan.active(True)
+
+            if self._wlan.isconnected():
                 return True
             ssid, password = self._find_ssid()
             if ssid is None:
                 print("No known SSID!")
                 return False
             print(f"connecting WLAN '{ssid:s}' ...")
-            self.sta_fi.connect(ssid, password)
+            self._wlan.connect(ssid, password)
             timeout_ms = 10000
             start_ms = time.ticks_ms()
-            while not self.sta_fi.isconnected():
+            while not self._wlan.isconnected():
                 time.sleep(1)
                 duration_ms = time.ticks_diff(time.ticks_ms(), start_ms)
                 if duration_ms > timeout_ms:
                     print(f"Timeout of {timeout_ms}ms while waiting for connection!")
                     return False
-            print("Connected! Network config:", self.sta_fi.ifconfig())
+            print("Connected! Network config:", self._wlan.ifconfig())
             return True
         except OSError as e:
             print(f"ERROR: wlan.connect() failed: {e}")
             return False
 
     def disconnect(self):
-        self.sta_fi.disconnect()
-        # self.sta_fi = None
+        self._wlan.disconnect()
+        self._wlan = None
 
 
 # CLIENT_ID = ubinascii.hexlify(machine.unique_id())
@@ -71,9 +98,8 @@ class MQTT:
         self.client = None
         self.wlan = wlan
         self._callbacks = {}
+        self._last_access_ms = time.ticks_ms()
 
-    # def create_subscribe_topic(self, subtopic: str) -> bytes:
-    #     return f"filament_dryer/{MQTT_CLIENT_ID}/{subtopic}".encode()
     def register_callback(self, subtopic: str, cb):
         topic = f"filament_dryer/{secrets.MQTT_CLIENT_ID}/{subtopic}".encode()
         self._callbacks[topic] = cb
@@ -87,9 +113,13 @@ class MQTT:
             return
         cb(msg.decode("ascii"))
 
+    @property
+    def duration_since_last_access_ms(self) -> int:
+        return time.ticks_diff(time.ticks_ms(), self._last_access_ms)
+
     def connect(self):
-        if not self.wlan.connect():
-            return
+        if not self.wlan.is_connected:
+            return False
         if self.client is None:
             self.client = MQTTClient(
                 secrets.MQTT_CLIENT_ID,
@@ -115,6 +145,7 @@ class MQTT:
             self.client.publish(topic, INITIAL_VALUE)
 
         self.publish_annotation(title="WLAN", text="connected")
+        self._last_access_ms = time.ticks_ms()
         return True
 
     def publish(self, fields: dict, annotation=False) -> None:

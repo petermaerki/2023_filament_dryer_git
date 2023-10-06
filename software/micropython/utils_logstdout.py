@@ -1,6 +1,6 @@
 from utils_log import LogfileTags
 from utils_constants import LOGFILE_DELIMITER
-from utils_time import tb
+from utils_timebase import tb
 
 class LogStdout:
     def log(self, tag: str, line: str, stdout: bool = False):

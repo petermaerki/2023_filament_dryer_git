@@ -6,10 +6,10 @@ from ds18x20 import DS18X20
 
 from utils_humidity import rel_to_dpt
 from utils_log import LogfileTags
-from utils_time import tb
+from utils_wdt import wdt
+from utils_timebase import tb
 from utils_constants import LOGFILE_DELIMITER
 from utils_logstdout import logfile
-
 
 class Measurement:
     def __init__(
@@ -154,7 +154,7 @@ class SensorOnOff(SensorBase):
 
 
 class SensorHeater(SensorBase):
-    def __init__(self, tag: str, heater: "Heater"):
+    def __init__(self, tag: str, heater: Heater):
         self._heater = heater
         self.measurement_power = Measurement(self, "_Power", "%", "{value:0.0f}")
         SensorBase.__init__(self, tag=tag, measurements=[self.measurement_power])
@@ -182,7 +182,7 @@ class SensorStatemachine(SensorBase):
 
 class SensorUptime(SensorBase):
     def __init__(self):
-        self.measurement = Measurement(self, "_h", "h", "{value:0.0f}")
+        self.measurement = Measurement(self, "_h", "h", "{value:0.3f}")
         SensorBase.__init__(self, tag="uptime", measurements=[self.measurement])
 
     def measure2(self):
@@ -200,6 +200,8 @@ class Sensors:
     def measure(self):
         start_ms = time.ticks_ms()
 
+        wdt.feed()
+
         for s in self._sensors:
             if not s._broken:
                 try:
@@ -207,6 +209,8 @@ class Sensors:
                 except Exception as ex:
                     s.io_error(ex=ex)
                     continue
+
+        wdt.feed()
 
         for s in self._sensors:
             if not s._broken:
@@ -220,6 +224,8 @@ class Sensors:
         sleep_ms = SensorDS18.MEASURE_MS - duration_ms
         if sleep_ms > 0:
             time.sleep_ms(sleep_ms)
+
+        wdt.feed()
 
         for s in self._sensors:
             if not s._broken:

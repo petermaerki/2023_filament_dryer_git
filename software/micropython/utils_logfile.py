@@ -4,8 +4,7 @@ import _thread
 from utils_constants import DIRECTORY_LOGS, LOGFILE_DELIMITER
 
 from utils_log import LogfileTags
-from utils_time import tb
-
+from utils_timebase import tb
 
 class Logfile:
     def __init__(self):

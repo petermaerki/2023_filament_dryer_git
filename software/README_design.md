@@ -5,7 +5,7 @@
 * At micropython boot:
   * Start watchdog
   * wlan connect
-  * mqqt broker connect
+  * mqtt broker connect
   * If failed:
     * Just remember, do not try to connect/reconnect
     * Run statemachine and do not access WLAN
