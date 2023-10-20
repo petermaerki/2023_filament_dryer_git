@@ -59,10 +59,6 @@
       (effects (font (size 0.8 0.8) (thickness 0.15)))
     (tstamp 2b25e886-ded1-450a-ada1-ece4208052e4)
   )
-  (fp_text user "SWCLK" (at -5.7 26.2) (layer "F.SilkS")
-      (effects (font (size 0.8 0.8) (thickness 0.15)))
-    (tstamp 2eea20e6-112c-411a-b615-885ae773135a)
-  )
   (fp_text user "3V3_EN" (at 13.7 -17.2 45) (layer "F.SilkS")
       (effects (font (size 0.8 0.8) (thickness 0.15)))
     (tstamp 2f3fba7a-cf45-4bd8-9035-07e6fa0b4732)
@@ -94,10 +90,6 @@
   (fp_text user "GP9" (at -12.8 3.81 45) (layer "F.SilkS")
       (effects (font (size 0.8 0.8) (thickness 0.15)))
     (tstamp 49b5f540-e128-4e08-bb09-f321f8e64056)
-  )
-  (fp_text user "SWDIO" (at 5.6 26.2) (layer "F.SilkS")
-      (effects (font (size 0.8 0.8) (thickness 0.15)))
-    (tstamp 49fec31e-3712-4229-8142-b191d90a97d0)
   )
   (fp_text user "GP5" (at -12.8 -8.89 45) (layer "F.SilkS")
       (effects (font (size 0.8 0.8) (thickness 0.15)))
@@ -235,10 +227,6 @@
     (stroke (width 0.12) (type solid)) (layer "F.SilkS") (tstamp 254f7cc6-cee1-44ca-9afe-939b318201aa))
   (fp_line (start -3.7 25.5) (end -10.5 25.5)
     (stroke (width 0.12) (type solid)) (layer "F.SilkS") (tstamp 1855ca44-ab48-4b76-a210-97fc81d916c4))
-  (fp_line (start -1.5 25.5) (end -1.1 25.5)
-    (stroke (width 0.12) (type solid)) (layer "F.SilkS") (tstamp 749d9ed0-2ff2-4b55-abc5-f7231ec3aa28))
-  (fp_line (start 1.1 25.5) (end 1.5 25.5)
-    (stroke (width 0.12) (type solid)) (layer "F.SilkS") (tstamp 8a8c373f-9bc3-4cf7-8f41-4802da916698))
   (fp_line (start 10.5 -25.5) (end 10.5 -25.2)
     (stroke (width 0.12) (type solid)) (layer "F.SilkS") (tstamp f23ac723-a36d-491d-9473-7ec0ffed332d))
   (fp_line (start 10.5 -23.1) (end 10.5 -22.7)
@@ -281,42 +269,6 @@
     (stroke (width 0.12) (type solid)) (layer "F.SilkS") (tstamp 199124ca-dd64-45cf-a063-97cc545cbea7))
   (fp_line (start 10.5 25.5) (end 3.7 25.5)
     (stroke (width 0.12) (type solid)) (layer "F.SilkS") (tstamp 54ed3ee1-891b-418e-ab9c-6a18747d7388))
-  (fp_poly
-    (pts
-      (xy -1.5 -16.5)
-      (xy -3.5 -16.5)
-      (xy -3.5 -18.5)
-      (xy -1.5 -18.5)
-    )
-
-    (stroke (width 0.1) (type solid)) (fill solid) (layer "Dwgs.User") (tstamp 022502e0-e724-4b75-bc35-3c5984dbeb76))
-  (fp_poly
-    (pts
-      (xy -1.5 -14)
-      (xy -3.5 -14)
-      (xy -3.5 -16)
-      (xy -1.5 -16)
-    )
-
-    (stroke (width 0.1) (type solid)) (fill solid) (layer "Dwgs.User") (tstamp d655bb0a-cbf9-4908-ad60-7024ff468fbd))
-  (fp_poly
-    (pts
-      (xy -1.5 -11.5)
-      (xy -3.5 -11.5)
-      (xy -3.5 -13.5)
-      (xy -1.5 -13.5)
-    )
-
-    (stroke (width 0.1) (type solid)) (fill solid) (layer "Dwgs.User") (tstamp 9f969b13-1795-4747-8326-93bdc304ed56))
-  (fp_poly
-    (pts
-      (xy 3.7 -20.2)
-      (xy -3.7 -20.2)
-      (xy -3.7 -24.9)
-      (xy 3.7 -24.9)
-    )
-
-    (stroke (width 0.1) (type solid)) (fill solid) (layer "Dwgs.User") (tstamp b9d4de74-d246-495d-8b63-12ab2133d6d6))
   (fp_line (start -11 -26) (end 11 -26)
     (stroke (width 0.12) (type solid)) (layer "F.CrtYd") (tstamp 9208ea78-8dde-4b3d-91e9-5755ab5efd9a))
   (fp_line (start -11 26) (end -11 -26)
@@ -419,12 +371,6 @@
   (pad "39" smd rect (at 8.89 -21.59) (size 3.5 1.7) (drill (offset 0.9 0)) (layers "F.Cu" "F.Mask") (tstamp c66a19ed-90c0-4502-ae75-6a4c4ab9f297))
   (pad "40" thru_hole oval (at 8.89 -24.13) (size 1.7 1.7) (drill 1.02) (layers "*.Cu" "*.Mask") (tstamp 0ba17a9b-d889-426c-b4fe-048bed6b6be8))
   (pad "40" smd rect (at 8.89 -24.13) (size 3.5 1.7) (drill (offset 0.9 0)) (layers "F.Cu" "F.Mask") (tstamp bd085057-7c0e-463a-982b-968a2dc1f0f8))
-  (pad "41" thru_hole oval (at -2.54 23.9) (size 1.7 1.7) (drill 1.02) (layers "*.Cu" "*.Mask") (tstamp fc2e9f96-3bed-4896-b995-f56e799f1c77))
-  (pad "41" smd rect (at -2.54 23.9 90) (size 3.5 1.7) (drill (offset -0.9 0)) (layers "F.Cu" "F.Mask") (tstamp b21299b9-3c4d-43df-b399-7f9b08eb5470))
-  (pad "42" thru_hole rect (at 0 23.9) (size 1.7 1.7) (drill 1.02) (layers "*.Cu" "*.Mask") (tstamp 4cfd9a02-97ef-4af4-a6b8-db9be1a8fda5))
-  (pad "42" smd rect (at 0 23.9 90) (size 3.5 1.7) (drill (offset -0.9 0)) (layers "F.Cu" "F.Mask") (tstamp 751d823e-1d7b-4501-9658-d06d459b0e16))
-  (pad "43" thru_hole oval (at 2.54 23.9) (size 1.7 1.7) (drill 1.02) (layers "*.Cu" "*.Mask") (tstamp 92761c09-a591-4c8e-af4d-e0e2262cb01d))
-  (pad "43" smd rect (at 2.54 23.9 90) (size 3.5 1.7) (drill (offset -0.9 0)) (layers "F.Cu" "F.Mask") (tstamp aadc3df5-0e2d-4f3d-b72e-6f184da74c89))
   (model "${KIPRJMOD}/Parts/RP-Pico Libraries/Pico.wrl"
     (offset (xyz 0 0 0))
     (scale (xyz 1 1 1))

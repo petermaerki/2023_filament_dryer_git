@@ -44,8 +44,11 @@ Probleme:
  * Konsistente Namensgebung: SILICAGEL, FILAMENT, AMBIENT. Falsch ist BOARD, EXTs
 
 # 2023-09-28 v1.0
-  * GPIO_FAN_AMBIENT is missing!
-  * Ambient Sensor: C2 ist unter dem Gehäuse!
-  * Löcher unter Pico sind unnütz!
-  * silicagel_fan -> filament_fan
-  * Unterhalb Pico: Kein Kupfer wegen Antenne
+  * DONE: GPIO_FAN_AMBIENT is missing!
+  * DONE: HT Spare weg!
+  * DONE: Ambient Sensor: C2 ist unter dem Gehäuse!
+  * OK: Löcher unter Pico sind unnütz!
+  * DONE: silicagel_fan -> filament_fan
+  * DONE: Unterhalb Pico: Kein Kupfer wegen Antenne
+
+# 2023-10-20 v1.1
