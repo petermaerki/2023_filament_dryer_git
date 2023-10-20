@@ -1,7 +1,8 @@
 import os
-from rp2 import Flash
+import rp2
 import os
 import gc
+import time
 import machine
 import micropython
 import _thread
@@ -23,6 +24,9 @@ from mod_statemachine import Statemachine
 from utils_constants import DIRECTORY_LOGS, DURATION_H_MS
 
 
+WLAN_RECONNECT_RETRY_MS = DURATION_H_MS
+WLAN_REBOOT_MS = 2*DURATION_H_MS
+
 class Globals:
     def __init__(self):
         self.stdout = False
@@ -31,6 +35,7 @@ class Globals:
 
 g = Globals()
 
+# wdt.enable()
 
 hardware = Hardware()
 sensoren = Sensoren(hardware=hardware)
@@ -43,14 +48,8 @@ sensoren.sensor_statemachine.set_sm(sm=sm)
 # print(LogfileTags.SENSORS_HEADER)
 
 
-def main_core2():
-    print("filament_dryer started")
-
-    wdt.enable()
-    # Make sure, 'wlan' and 'mqtt' are instantiated in the thread which will access them
-    wlan = utils_wlan.WLAN()
-    wlan.connect()
-    mqtt = utils_wlan.MQTT(wlan)
+def main_core2(mqtt):
+    print("DEBUG: main_core2: started")
 
     def statechange(old: str, new: str, why: str) -> None:
         mqtt.publish_annotation(
@@ -91,10 +90,19 @@ def main_core2():
 
         tb.sleep()
 
-        if mqtt.duration_since_last_access_ms > DURATION_H_MS:
-            print(f"Wlan or mqtt was down for {DURATION_H_MS}ms, so lets reboot and retry!")
+def main_core1():
+    print("DEBUG: main_core1: started")
+    wlan = utils_wlan.WLAN()
+    mqtt = utils_wlan.MQTT(wlan)
+    _thread.start_new_thread(main_core2, [mqtt])
+    while True:
+        print("DEBUG: main_core1: wlan.connect()")
+        success = wlan.connect()
+        print(f"DEBUG: main_core1: wlan.connect() returned {success}")
+        if mqtt.duration_since_last_access_ms > WLAN_REBOOT_MS:
+            print(f"Wlan or mqtt was down for {WLAN_REBOOT_MS}ms, so lets reboot and retry!")
             machine.reset()
-
+        time.sleep(WLAN_RECONNECT_RETRY_MS)
 
 def pressed(duration_ms: int) -> None:
     sm.set_forward_to_next_state()
@@ -205,7 +213,7 @@ def format():  # Reformat
     hardware.heater.set_power(False)
 
     # https://www.i-programmer.info/programming/hardware/16334-raspberry-pi-pico-file-system-a-sd-card-reader.html?start=1
-    flash = Flash()
+    flash = rp2.Flash()
     os.umount("/")
     os.VfsLfs2.mkfs(flash)
     os.mount(flash, "/")
@@ -221,6 +229,6 @@ def smx(new_state: str):
 
 # g.stdout = True
 if True:
-    main_core2()
+    main_core1()
 else:
     _thread.start_new_thread(main_core2, ())

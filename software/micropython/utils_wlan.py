@@ -5,7 +5,6 @@ from utils_umqtt import MQTTClient
 
 import secrets
 import utils_influxdb
-from utils_wdt import TimerWdt
 
 # https://github.com/micropython/micropython/issues/11977
 country = const("CH")
@@ -15,7 +14,9 @@ network.country(country)
 
 class WLAN:
     def __init__(self):
-        self._wlan = None
+        self._wlan = network.WLAN(network.STA_IF)
+        self._wlan.config(pm=network.WLAN.PM_PERFORMANCE)
+        self._wlan.active(True)
 
     def _find_ssid(self):
         """
@@ -33,41 +34,35 @@ class WLAN:
         return (None, None)
 
     @property
-    def is_connected(self) -> bool:
+    def got_ip_address(self) -> bool:
         """
         Return True if connected
         """
-        return self._wlan is not None
+        print(f"DEBUG: network.STAT_GOT_IP: {network.STAT_GOT_IP}")
+        print(f"DEBUG: got_ip: {self._wlan.isconnected()}, {self._wlan.status()}")
+        print("DEBUG: Connected! Network config:", self._wlan.ifconfig())
+        got_ip = self._wlan.status() == network.STAT_GOT_IP
+        ip_address = self._wlan.ifconfig()[0]
+        got_address = ip_address != "0.0.0.0"
+        print(f"DEBUG: ip_address: {ip_address}")
+        return got_address
+        # print(f"DEBUG: is_connected: {self._wlan.isconnected()}, {dir(self._wlan)}")
+        # print(f"DEBUG: status {self._wlan.status() == WLAN.STAT_GOT_IP}")
+        # return self._wlan.isconnected()
 
     def connect(self) -> bool:
         """
         Return True if connection could be established
         """
-        with TimerWdt(duration_ms=20000):
-            success = self.connect_()
-        if not success:
-            self._wlan.deinit()
-            self._wlan.active(False)
-            self._wlan = None
-        return success
-
-    def connect_(self) -> bool:
-        """
-        Return True if connection could be established
-        """
         try:
-            print(f"connecting WLAN ...")
-            if self._wlan is None:
-                self._wlan = network.WLAN(network.STA_IF)
-                self._wlan.active(True)
-
-            if self._wlan.isconnected():
+            print(f"DEBUG: connecting WLAN ...")
+            if self.got_ip_address:
                 return True
             ssid, password = self._find_ssid()
             if ssid is None:
-                print("No known SSID!")
+                print("WARNING: No known SSID!")
                 return False
-            print(f"connecting WLAN '{ssid:s}' ...")
+            print(f"DEBUG: connecting WLAN '{ssid:s}' ...")
             self._wlan.connect(ssid, password)
             timeout_ms = 10000
             start_ms = time.ticks_ms()
@@ -75,9 +70,9 @@ class WLAN:
                 time.sleep(1)
                 duration_ms = time.ticks_diff(time.ticks_ms(), start_ms)
                 if duration_ms > timeout_ms:
-                    print(f"Timeout of {timeout_ms}ms while waiting for connection!")
+                    print(f"WARNING: Timeout of {timeout_ms}ms while waiting for connection!")
                     return False
-            print("Connected! Network config:", self._wlan.ifconfig())
+            print("DEBUG: Connected! Network config:", self._wlan.ifconfig())
             return True
         except OSError as e:
             print(f"ERROR: wlan.connect() failed: {e}")
@@ -118,8 +113,9 @@ class MQTT:
         return time.ticks_diff(time.ticks_ms(), self._last_access_ms)
 
     def connect(self):
-        if not self.wlan.is_connected:
+        if not self.wlan.got_ip_address:
             return False
+        print("DEBUG: MQTT connect...")
         if self.client is None:
             self.client = MQTTClient(
                 secrets.MQTT_CLIENT_ID,
@@ -132,11 +128,11 @@ class MQTT:
             # We are already connected
             return True
         self.client.set_callback(self._callback)
-        print(f"MQTT Broker '{secrets.MQTT_BROKER}'")
+        print(f"DEBUG: MQTT Broker '{secrets.MQTT_BROKER}'")
         try:
             self.client.connect()
         except OSError as e:
-            print(f"ERROR: MQTT connect() failed: {e}")
+            print(f"ERROR: MQTT connect() failed: {e!r}")
             return False
         # self.client.subscribe(SUBSCRIBE_TOPIC)
         # self.client.publish(SUBSCRIBE_TOPIC, "Off")
@@ -146,10 +142,12 @@ class MQTT:
 
         self.publish_annotation(title="WLAN", text="connected")
         self._last_access_ms = time.ticks_ms()
+        print("DEBUG: MQTT connected")
         return True
 
     def publish(self, fields: dict, annotation=False) -> None:
         if not self.connect():
+            self.client = None
             return
         measurements = [
             {
