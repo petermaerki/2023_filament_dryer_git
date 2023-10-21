@@ -189,7 +189,9 @@ class MQTT:
         # print("DEBUG: MQTT connect...")
         if self.wlan_connection_counter == self.wlan.connection_counter:
             return True
-        print(f"DEBUG: WLAN reconnected (connection_counter:{self.wlan.connection_counter}). MQTT has to reconnect too...")
+        print(
+            f"DEBUG: WLAN reconnected (connection_counter:{self.wlan.connection_counter}). MQTT has to reconnect too..."
+        )
         self.client = None
         self.wlan_connection_counter = self.wlan.connection_counter
 
@@ -229,21 +231,18 @@ class MQTT:
         print(f"DEBUG: MQTT connected to {secrets.MQTT_BROKER}")
         return True
 
-    def publish(self, fields: dict, annotation=False) -> None:
+    def publish(self, fields: dict, tags: dict) -> None:
         if not self.connect():
             return
+        tags["setup"] = "zeus"
+        tags["room"] = "B15"
         measurements = [
             {
                 "measurement": secrets.MQTT_CLIENT_ID,  # a measurement has one 'measurement'. It is the name of the pcb.
                 "fields": fields,
-                "tags": {
-                    "setup": "zeus",
-                    "room": "B15",
-                },
+                "tags": tags,
             },
         ]
-        if annotation:
-            measurements[0]["tags"]["event"] = "annotation"
         payload = utils_influxdb.build_payload(measurements)
         if False:
             print(f"{MQTT_BROKER}: {PUBLISH_TOPIC}")
@@ -263,11 +262,13 @@ class MQTT:
             self.wlan.power_off()
             return
 
-    def publish_annotation(self, title: str, text: str) -> None:
+    def publish_annotation(self, title: str, text: str, severity="INFO") -> None:
         fields = {
-            "event": '"annotation"',
-            "severity": '"INFO"',
             "title": f'"{title}"',
             "text": f'"{text}"',
         }
-        self.publish(fields=fields, annotation=True)
+        tags = {
+            "severity": severity,
+            "event": "annotation",
+        }
+        self.publish(fields=fields, tags=tags)

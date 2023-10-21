@@ -65,7 +65,7 @@ def main_core2(mqtt):
 
         # print("get_mqtt_fields")
         # print(sensors.get_mqtt_fields())
-        mqtt.publish(fields=sensoren.sensors.get_mqtt_fields())
+        mqtt.publish(fields=sensoren.sensors.get_mqtt_fields(), tags={})
 
         tb.sleep()
 
