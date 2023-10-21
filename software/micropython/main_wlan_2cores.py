@@ -2,6 +2,7 @@ import os
 import rp2
 import os
 import gc
+import time
 import machine
 import micropython
 import _thread
@@ -23,16 +24,45 @@ from mod_statemachine import Statemachine
 from utils_constants import DIRECTORY_LOGS, DURATION_H_MS
 
 
-wdt.enable()
+WLAN_RECONNECT_RETRY_MS = DURATION_H_MS
+WLAN_REBOOT_MS = 2*DURATION_H_MS
+
+# wdt.enable()
 
 hardware = Hardware()
 sensoren = Sensoren(hardware=hardware)
+
 
 sm = Statemachine(hardware=hardware, sensoren=sensoren)
 sensoren.sensor_statemachine.set_sm(sm=sm)
 
 
+# print(LogfileTags.SENSORS_HEADER)
+
+def main_core1():
+    """
+    The first core
+    * connects to WLAN
+    * reboots if WLAN was down for WLAN_REBOOT_MS
+    """
+    print("DEBUG: main_core1: started")
+    while True:
+        print("DEBUG: main_core1: wlan.connect()")
+        success = wlan.connect()
+        print(f"DEBUG: main_core1: wlan.connect() returned {success}")
+        if mqtt.duration_since_last_access_ms > WLAN_REBOOT_MS:
+            print(f"Wlan or mqtt was down for {WLAN_REBOOT_MS}ms, so lets reboot and retry!")
+            machine.reset()
+        time.sleep(WLAN_RECONNECT_RETRY_MS)
+
+
 def main_core2(mqtt):
+    """
+    The second core
+    * runs the statemachine
+    * feeds the watchdog
+    * pushes MQTT messages
+    """
     print("DEBUG: main_core2: started")
 
     def statechange(old: str, new: str, why: str) -> None:
@@ -60,7 +90,7 @@ def main_core2(mqtt):
         logfile.log(
             LogfileTags.SENSORS_VALUES,
             sensoren.sensors.get_values(sensoren.stdout_measurements),
-            stdout=False,
+            stdout=True,
         )
 
         # print("get_mqtt_fields")
@@ -68,7 +98,6 @@ def main_core2(mqtt):
         mqtt.publish(fields=sensoren.sensors.get_mqtt_fields())
 
         tb.sleep()
-
 
 def pressed(duration_ms: int) -> None:
     sm.set_forward_to_next_state()
@@ -88,6 +117,12 @@ utils_button.Button(
 )
 
 
+# PIN_GPIO_HEATER_A.value(1)
+# PIN_GPIO_HEATER_B.value(1)
+# PIN_GPIO_FAN_AMBIENT.value(1)
+# PIN_GPIO_FAN_SILICAGEL.value(1)
+
+
 def thread():
     _thread.start_new_thread(main_core2, ())
 
@@ -101,8 +136,40 @@ def valuesall():
     print(sensoren.sensors.get_header())
     print(sensoren.sensors.get_values())
 
-def power_off():
-    wlan.power_off()
+
+# def main():
+#     g.stdout = True
+#     main_core2()
+
+
+# def s0():
+#     g.stdout = False
+
+
+# def s1():
+#     g.stdout = True
+#     print(sensors.get_header())
+
+
+# def fa():
+#     PIN_GPIO_FAN_AMBIENT.toggle()
+
+
+# def fs():
+#     PIN_GPIO_FAN_SILICAGEL.toggle()
+
+
+# def hd():
+#     print(sensors.get_header())
+
+
+# def h(power: bool):
+#     heater.set_power(power=power)
+
+
+# def stop():
+#     g.stop_thread = True
+
 
 def df():  # Disk Free
     print("*** Garbage")
@@ -155,15 +222,11 @@ def smp():
 def smx(new_state: str):
     sm.switch_by_name(new_state)
 
-
-wlan = utils_wlan.WLAN()
-wlan.register_wdt_feed_cb(wdt.feed)
-# Make sure, the connection before the reboot is dropped.
-wlan.power_off()
-wlan.connect()
-mqtt = utils_wlan.MQTT(wlan)
-
+# g.stdout = True
 if True:
-    main_core2(mqtt)
+    wlan = utils_wlan.WLAN()
+    mqtt = utils_wlan.MQTT(wlan)
+    _thread.start_new_thread(main_core2, [mqtt])
+    main_core1()
 else:
-    _thread.start_new_thread(main_core2, (mqtt,))
+    _thread.start_new_thread(main_core2, ())
