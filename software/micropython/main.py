@@ -20,12 +20,13 @@ from utils_timebase import tb
 from mod_hardware import Hardware
 from mod_sensoren import Sensoren
 from mod_statemachine import Statemachine
-from utils_constants import DIRECTORY_LOGS, DURATION_H_MS
+from utils_constants import DIRECTORY_LOGS
 
 
-# wdt.enable()
+wdt.enable()
 
 hardware = Hardware()
+# hardware.production_test(wdt.feed)
 sensoren = Sensoren(hardware=hardware)
 
 sm = Statemachine(hardware=hardware, sensoren=sensoren)
@@ -101,8 +102,10 @@ def valuesall():
     print(sensoren.sensors.get_header())
     print(sensoren.sensors.get_values())
 
+
 def power_off():
     wlan.power_off()
+
 
 def df():  # Disk Free
     print("*** Garbage")
@@ -147,12 +150,15 @@ def format():  # Reformat
     os.mount(flash, "/")
     machine.soft_reset()
 
+
 def smp():
     print(sm.state_name)
 
 
 def smx(new_state: str):
     sm.switch_by_name(new_state)
+
+
 
 
 wlan = utils_wlan.WLAN()

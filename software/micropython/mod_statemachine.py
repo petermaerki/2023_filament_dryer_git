@@ -107,14 +107,10 @@ class Statemachine:
             return
 
         # Controller for the fan
-        diff_abs_g_kg = (
-            self._sensoren.sensor_sht31_heater.measurement_abs_g_kg.value
-            - self._sensoren.sensor_sht31_ambient.measurement_abs_g_kg.value
-        )
+        diff_abs_g_kg = self._sensoren.heater_abs_g_kg - self._sensoren.ambient_abs_g_kg
         fan_on = (
             diff_abs_g_kg > config.SM_REGENERATE_DIFF_ABS_G_KG
-            or self._sensoren.sensor_sht31_heater.measurement_dew_C.value
-            > self._sensoren.sensor_sht31_ambient.measurement_C.value - 4.0
+            or self._sensoren.heater_dew_C > self._sensoren.ambient_C - 4.0
         )
         self._hw.PIN_GPIO_FAN_AMBIENT.value(fan_on)
 
@@ -175,13 +171,11 @@ class Statemachine:
         if tb.now_ms >= self._dryfan_next_ms:
             logfile.log(
                 LogfileTags.LOG_INFO,
-                f"len={len(self._dryfan_list_abs_g_kg)}, append({self._sensoren.sensor_sht31_filament.measurement_abs_g_kg.value})",
+                f"len={len(self._dryfan_list_abs_g_kg)}, append({self._sensoren.filament_abs_g_kg})",
                 stdout=True,
             )
             self._dryfan_next_ms += config.SM_DRYFAN_NEXT_MS
-            self._dryfan_list_abs_g_kg.insert(
-                0, self._sensoren.sensor_sht31_filament.measurement_abs_g_kg.value
-            )
+            self._dryfan_list_abs_g_kg.insert(0, self._sensoren.filament_abs_g_kg)
 
             if len(self._dryfan_list_abs_g_kg) > config.SM_DRYFAN_ELEMENTS:
                 reduction_abs_g_kg = (
