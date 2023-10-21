@@ -67,3 +67,7 @@ class Sensoren:
     @property
     def ambient_C(self) -> float:
         return self.sensor_sht31_ambient.measurement_C.value
+    
+    @property
+    def heater_C(self) -> float:
+        return self.sensor_sht31_heater.measurement_C.value
