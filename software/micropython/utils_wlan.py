@@ -214,7 +214,7 @@ class MQTT:
             self.wlan._wdt_feed()
             self.client.connect()
         except OSError as e:
-            print(f"ERROR: MQTT connect() failed: {e!r}")
+            print(f"ERROR: MQTT connect() failed: {e}")
             return False
         # self.client.subscribe(SUBSCRIBE_TOPIC)
         # self.client.publish(SUBSCRIBE_TOPIC, "Off")

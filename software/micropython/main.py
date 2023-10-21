@@ -23,7 +23,7 @@ from mod_statemachine import Statemachine
 from utils_constants import DIRECTORY_LOGS, DURATION_H_MS
 
 
-wdt.enable()
+# wdt.enable()
 
 hardware = Hardware()
 sensoren = Sensoren(hardware=hardware)
@@ -146,7 +146,6 @@ def format():  # Reformat
     os.VfsLfs2.mkfs(flash)
     os.mount(flash, "/")
     machine.soft_reset()
-
 
 def smp():
     print(sm.state_name)

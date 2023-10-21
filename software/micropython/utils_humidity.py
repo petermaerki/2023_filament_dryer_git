@@ -28,6 +28,12 @@ def rel_to_abs(T: float, P: float, RH: float) -> float:
     import math
 
     # Check input types
+    assert isinstance(T, float)
+    assert isinstance(P, float)
+    assert isinstance(RH, float)
+    RH = max(0.1, RH)
+
+    # Check input types
     T = float(T)
     P = float(P)
     RH = float(RH)

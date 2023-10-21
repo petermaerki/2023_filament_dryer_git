@@ -6,6 +6,7 @@ from utils_log import LogfileTags
 
 try:
     from typing import TYPE_CHECKING
+
     if TYPE_CHECKING:
         from mod_hardware import Hardware
         from mod_sensoren import Sensoren
@@ -25,7 +26,7 @@ class Statemachine:
         self._sensoren = sensoren
 
         self._regenrate_last_fanon_ms = 0
-        self._dryfan_list_dew_C = []
+        self._dryfan_list_abs_g_kg = []
         self._dryfan_next_ms = 0
         self._forward_to_next_state = False
         self.statechange_cb = lambda state, new_state, why: state
@@ -106,8 +107,15 @@ class Statemachine:
             return
 
         # Controller for the fan
-        diff_dew_C = self._sensoren.heater_dew_C - self._sensoren.ambient_dew_C
-        fan_on = diff_dew_C > config.SM_REGENERATE_DIFF_DEW_C
+        diff_abs_g_kg = (
+            self._sensoren.sensor_sht31_heater.measurement_abs_g_kg.value
+            - self._sensoren.sensor_sht31_ambient.measurement_abs_g_kg.value
+        )
+        fan_on = (
+            diff_abs_g_kg > config.SM_REGENERATE_DIFF_ABS_G_KG
+            or self._sensoren.sensor_sht31_heater.measurement_dew_C.value
+            > self._sensoren.sensor_sht31_ambient.measurement_C.value - 4.0
+        )
         self._hw.PIN_GPIO_FAN_AMBIENT.value(fan_on)
 
         if fan_on:
@@ -152,7 +160,7 @@ class Statemachine:
         self._hw.PIN_GPIO_FAN_SILICAGEL.on()
         self._hw.PIN_GPIO_FAN_AMBIENT.off()
         self._hw.heater.set_power(False)
-        self._dryfan_list_dew_C = []
+        self._dryfan_list_abs_g_kg = []
         self._dryfan_next_ms = tb.now_ms
 
         self._hw.PIN_GPIO_LED_GREEN.value(0)
@@ -167,40 +175,54 @@ class Statemachine:
         if tb.now_ms >= self._dryfan_next_ms:
             logfile.log(
                 LogfileTags.LOG_INFO,
-                f"len={len(self._dryfan_list_dew_C)}, append({self._sensoren.filament_dew_C})",
+                f"len={len(self._dryfan_list_abs_g_kg)}, append({self._sensoren.sensor_sht31_filament.measurement_abs_g_kg.value})",
                 stdout=True,
             )
             self._dryfan_next_ms += config.SM_DRYFAN_NEXT_MS
-            self._dryfan_list_dew_C.insert(0, self._sensoren.filament_dew_C)
+            self._dryfan_list_abs_g_kg.insert(
+                0, self._sensoren.sensor_sht31_filament.measurement_abs_g_kg.value
+            )
 
-            if len(self._dryfan_list_dew_C) > config.SM_DRYFAN_ELEMENTS:
-                reduction_dew_C = (
-                    self._dryfan_list_dew_C[-1] - self._dryfan_list_dew_C[0]
+            if len(self._dryfan_list_abs_g_kg) > config.SM_DRYFAN_ELEMENTS:
+                reduction_abs_g_kg = (
+                    self._dryfan_list_abs_g_kg[-1] - self._dryfan_list_abs_g_kg[0]
                 )
                 logfile.log(
                     LogfileTags.LOG_INFO,
-                    f"reduction_dew_C={reduction_dew_C:0.1f}",
+                    f"reduction_abs_g_kg={reduction_abs_g_kg:0.1f}",
                     stdout=True,
                 )
-                self._dryfan_list_dew_C.pop()
-                if reduction_dew_C < config.SM_DRYFAN_DIFF_DEW_C:
-                    why = f"reduction_dew_C {reduction_dew_C:0.1f}C < SM_DRYFAN_DIFF_DEW_C {config.SM_DRYFAN_DIFF_DEW_C:0.1f}C AND filament_dew_C {self._sensoren.filament_dew_C:0.1f}C > SM_DRYFAN_DEW_SET_C {config.SM_DRYFAN_DEW_SET_C:0.1f}C"
-                    if self._sensoren.filament_dew_C > config.SM_DRYFAN_DEW_SET_C:
-                        self._switch(self._state_regenerate, why)
-                        return
-                    self._switch(
-                        self._state_drywait,
-                        why.replace(
-                            "C > SM_DRYFAN_DEW_SET_C", "C <= SM_DRYFAN_DEW_SET_C"
-                        ),
-                    )
+                self._dryfan_list_abs_g_kg.pop()
+
+                if reduction_abs_g_kg < config.SM_DRYFAN_DIFF_ABS_G_KG:
+                    why = f"humidity does not sink fast enough, reduction_abs_g_kg {reduction_abs_g_kg:0.1f} g kg < SM_DRYFAN_DIFF_ABS_G_KG {config.SM_DRYFAN_DIFF_ABS_G_KG:0.1f} g kg"
+                    self._switch(self._state_drywait, why)
+                    return
+
+                # if reduction_abs_g_kg < config.SM_DRYFAN_DIFF_ABS_G_KG: # humidity does not sink fast enough
+                #     why = f"reduction_abs_g_kg {reduction_abs_g_kg:0.1f}C < SM_DRYFAN_DIFF_ABS_G_KG {config.SM_DRYFAN_DIFF_ABS_G_KG:0.1f}C AND sht31_board.measurement_abs_g_kg {sensor_sht31_filament.measurement_abs_g_kg.value:0.1f}C > SM_DRYFAN_ABS_G_KG {config.SM_DRYFANSET_ABS_G_KG:0.1f}C"
+                #     if (
+                #         sensor_sht31_filament.measurement_abs_g_kg.value
+                #         > config.SM_DRYFANSET_ABS_G_KG
+                #     ):
+                #         self._switch(self._state_regenerate, why)
+                #         return
+                #     self._switch(
+                #         self._state_drywait,
+                #         why.replace(
+                #             "g kg > SM_DRYFAN_DIFF_ABS_G_KG", "g kg <= SM_DRYFAN_DIFF_ABS_G_KG"
+                #         ),
+                #     )
 
     # State: DRY WAIT
     def _entry_drywait(self) -> None:
         self._hw.PIN_GPIO_FAN_SILICAGEL.off()
         self._hw.PIN_GPIO_FAN_AMBIENT.off()
         self._hw.heater.set_power(False)
-        self._dry_wait_filament_dew_C = self._sensoren.filament_dew_C
+        self._dry_wait_filament_abs_g_kg = (
+            self._sensoren.sensor_sht31_filament.measurement_abs_g_kg.value
+        )
+        self._entry_drywait_ms = tb.now_ms
 
         self._hw.PIN_GPIO_LED_GREEN.value(1)
         self._hw.PIN_GPIO_LED_RED.value(0)
@@ -211,11 +233,26 @@ class Statemachine:
             self._switch(self._state_off, WHY_FORWARD)
             return
 
-        # diff_dew_C ist positiv wenn der Taupunkt zunimmt
-        diff_dew_C = self._sensoren.filament_dew_C - self._dry_wait_filament_dew_C
-        switch_to_fan_on = diff_dew_C > config.SM_DRYWAIT_DIFF_DEW_C
+        # diff_abs_g_kg ist positiv wenn der Taupunkt zunimmt
+        diff_abs_g_kg = (
+            self._sensoren.sensor_sht31_filament.measurement_abs_g_kg.value
+            - self._dry_wait_filament_abs_g_kg
+        )
+        humidity_increased_to_much = diff_abs_g_kg > config.SM_DRYWAIT_DIFF_ABS_G_KG
+        time_drywait_ms = tb.now_ms - self._entry_drywait_ms
+        time_drywait_not_to_short = (
+            time_drywait_ms > config.SM_DRYWAIT_MINTIME_BACK_REGENERATE_MS
+        )
+        to_humid = self._dry_wait_filament_abs_g_kg > config.SM_DRYWAIT_ABS_G_KG
 
-        if switch_to_fan_on:
-            self._switch(
-                self._state_dryfan, f"dew filament increased by {diff_dew_C:0.1f}C"
-            )
+        # print(f'to_humid {to_humid} time_drywait_not_to_short {time_drywait_not_to_short}')
+
+        if (
+            to_humid and time_drywait_not_to_short
+        ):  # it is to humid and the humidity does not increase to fast, further dryfan is not useful therefore change to regenerate
+            why = f"to humid self._dry_wait_filament_abs_g_kg {self._dry_wait_filament_abs_g_kg:0.1f} > config.SM_DRYWAIT_ABS_G_KG {config.SM_DRYWAIT_ABS_G_KG:0.1f} and drywait not to short time_drywait_ms {time_drywait_ms} > config.SM_DRYWAIT_MINTIME_BACK_REGENERATE_MS {config.SM_DRYWAIT_MINTIME_BACK_REGENERATE_MS}"
+            self._switch(self._state_regenerate, why)
+
+        if humidity_increased_to_much:
+            why = f"humidity increased to much diff_abs_g_kg {diff_abs_g_kg:0.1f} > config.SM_DRYWAIT_DIFF_ABS_G_KG {config.SM_DRYWAIT_DIFF_ABS_G_KG:0.1f}"
+            self._switch(self._state_dryfan, why)

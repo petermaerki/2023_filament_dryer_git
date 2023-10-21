@@ -4,7 +4,7 @@ import lib_sht31
 import onewire
 from ds18x20 import DS18X20
 
-from utils_humidity import rel_to_dpt
+from utils_humidity import rel_to_dpt, rel_to_abs
 from utils_log import LogfileTags
 from utils_wdt import wdt
 from utils_timebase import tb
@@ -88,6 +88,7 @@ class SensorSHT31(SensorBase):
         self.measurement_C = Measurement(self, "_C", "C", "{value:0.2f}")
         self.measurement_H = Measurement(self, "_rH", "H", "{value:0.1f}")
         self.measurement_dew_C = Measurement(self, "_dew_C", "C", "{value:0.1f}")
+        self.measurement_abs_g_kg = Measurement(self, "_abs_g_kg", "g_kg", "{value:0.2f}")
         SensorBase.__init__(
             self,
             tag=tag,
@@ -95,6 +96,7 @@ class SensorSHT31(SensorBase):
                 self.measurement_C,
                 self.measurement_H,
                 self.measurement_dew_C,
+                self.measurement_abs_g_kg,
             ],
         )
         try:
@@ -108,7 +110,8 @@ class SensorSHT31(SensorBase):
         self.measurement_H.value = rH
         dpt_K = rel_to_dpt(T=C - ABSOLUTER_NULLPUNKT_C, P=UMGEBUNGSDRUCK_P, RH=rH)
         self.measurement_dew_C.value = dpt_K + ABSOLUTER_NULLPUNKT_C
-
+        abs_g_kg = 1000.0 * rel_to_abs(T=C - ABSOLUTER_NULLPUNKT_C, P=UMGEBUNGSDRUCK_P, RH=rH)
+        self.measurement_abs_g_kg.value = abs_g_kg
 
 class SensorDS18(SensorBase):
     # DS18x: mandatory pause to collect results, datasheet max 750 ms

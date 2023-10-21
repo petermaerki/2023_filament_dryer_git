@@ -13,7 +13,7 @@ class Heater:
 
     @property
     def power_controlled(self) -> bool:
-        if self._board_C > config.HEATER_BOARD_MAX:
+        if self._board_C > config.HEATER_BOARD_MAX_C:
             return False
         return self._power
 
