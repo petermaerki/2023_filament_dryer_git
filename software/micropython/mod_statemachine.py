@@ -95,7 +95,6 @@ class Statemachine:
         self._regenrate_last_fanon_ms = 0
         self._hw.PIN_GPIO_FAN_AMBIENT.off()
         self._hw.PIN_GPIO_FAN_SILICAGEL.off()
-        self._hw.heater.set_power(True)
 
         self._hw.PIN_GPIO_LED_GREEN.value(0)
         self._hw.PIN_GPIO_LED_RED.value(1)
@@ -113,6 +112,10 @@ class Statemachine:
             or self._sensoren.heater_dew_C > self._sensoren.ambient_C - 4.0
         )
         self._hw.PIN_GPIO_FAN_AMBIENT.value(fan_on)
+
+        # Do heat if humidity in heater is not to high
+        heat_power_on = self._sensoren.heater_dew_C < self._sensoren.ambient_C + 4.0
+        self._hw.heater.set_power(heat_power_on)
 
         if fan_on:
             self._regenrate_last_fanon_ms = tb.now_ms
