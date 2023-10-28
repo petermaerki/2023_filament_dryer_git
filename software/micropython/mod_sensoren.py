@@ -30,7 +30,7 @@ class Sensoren:
                 SensorOnOff("led_red", "", hardware.PIN_GPIO_LED_RED),
                 SensorOnOff("led_white", "", hardware.PIN_GPIO_LED_WHITE),
                 self.sensor_heater_power,
-                SensorOnOff("filament", "_Fan", hardware.PIN_GPIO_FAN_SILICAGEL),
+                SensorOnOff("filament", "_Fan", hardware.PIN_GPIO_FAN_FILAMENT),
                 SensorOnOff("ambient", "_Fan", hardware.PIN_GPIO_FAN_AMBIENT),
                 self.sensor_sht31_ambient,
                 self.sensor_sht31_heater,

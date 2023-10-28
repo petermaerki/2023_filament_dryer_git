@@ -79,7 +79,8 @@ class Statemachine:
     # State: OFF
     def _entry_off(self) -> None:
         self._hw.PIN_GPIO_FAN_AMBIENT.off()
-        self._hw.PIN_GPIO_FAN_SILICAGEL.off()
+        self._hw.PIN_GPIO_FAN_FILAMENT.off()
+        self._hw.PIN_GPIO_FAN_BOX.off()
         self._hw.heater.set_power(False)
 
         self._hw.PIN_GPIO_LED_GREEN.value(1)
@@ -94,7 +95,8 @@ class Statemachine:
     def _entry_regenerate(self) -> None:
         self._regenrate_last_fanon_ms = 0
         self._hw.PIN_GPIO_FAN_AMBIENT.off()
-        self._hw.PIN_GPIO_FAN_SILICAGEL.off()
+        self._hw.PIN_GPIO_FAN_FILAMENT.off()
+        self._hw.PIN_GPIO_FAN_BOX.off()
 
         self._hw.PIN_GPIO_LED_GREEN.value(0)
         self._hw.PIN_GPIO_LED_RED.value(1)
@@ -134,7 +136,8 @@ class Statemachine:
 
     # State: COOL DOWN
     def _entry_cooldown(self) -> None:
-        self._hw.PIN_GPIO_FAN_SILICAGEL.off()
+        self._hw.PIN_GPIO_FAN_FILAMENT.off()
+        self._hw.PIN_GPIO_FAN_BOX.off()
         self._hw.PIN_GPIO_FAN_AMBIENT.off()
         self._hw.heater.set_power(False)
 
@@ -156,7 +159,8 @@ class Statemachine:
 
     # State: DRY FAN
     def _entry_dryfan(self) -> None:
-        self._hw.PIN_GPIO_FAN_SILICAGEL.on()
+        self._hw.PIN_GPIO_FAN_FILAMENT.on()
+        self._hw.PIN_GPIO_FAN_BOX.on()
         self._hw.PIN_GPIO_FAN_AMBIENT.off()
         self._hw.heater.set_power(False)
         self._dryfan_list_abs_g_kg = []
@@ -213,7 +217,8 @@ class Statemachine:
 
     # State: DRY WAIT
     def _entry_drywait(self) -> None:
-        self._hw.PIN_GPIO_FAN_SILICAGEL.off()
+        self._hw.PIN_GPIO_FAN_FILAMENT.off()
+        self._hw.PIN_GPIO_FAN_BOX.on()
         self._hw.PIN_GPIO_FAN_AMBIENT.off()
         self._hw.heater.set_power(False)
         self._dry_wait_filament_abs_g_kg = (
