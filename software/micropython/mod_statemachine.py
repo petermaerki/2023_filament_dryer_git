@@ -218,7 +218,7 @@ class Statemachine:
     # State: DRY WAIT
     def _entry_drywait(self) -> None:
         self._hw.PIN_GPIO_FAN_FILAMENT.off()
-        self._hw.PIN_GPIO_FAN_BOX.on()
+        self._hw.PIN_GPIO_FAN_BOX.off()
         self._hw.PIN_GPIO_FAN_AMBIENT.off()
         self._hw.heater.set_power(False)
         self._dry_wait_filament_abs_g_kg = (
