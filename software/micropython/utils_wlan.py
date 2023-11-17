@@ -3,7 +3,7 @@ import rp2
 import network
 from utils_umqtt import MQTTClient
 
-import secrets
+import config_secrets
 import utils_influxdb
 
 # https://github.com/micropython/micropython/issues/11977
@@ -91,7 +91,7 @@ class WLAN:
             print("WARNING: WLANs.scan() returned empty list!")
             return (None, None)
 
-        for ssid, password in secrets.SSID_CREDENTIALS:
+        for ssid, password in config_secrets.SSID_CREDENTIALS:
             assert isinstance(ssid, bytes), ssid
             assert isinstance(password, str), password
             if ssid in set_ssids:
@@ -171,7 +171,7 @@ class MQTT:
         self.wlan_connection_counter = -1
 
     def register_callback(self, subtopic: str, cb):
-        topic = f"filament_dryer/{secrets.MQTT_CLIENT_ID}/{subtopic}".encode()
+        topic = f"filament_dryer/{utils_influxdb.influxdb_escape(config_secrets.MQTT_CLIENT_ID)}/{subtopic}".encode()
         self._callbacks[topic] = cb
 
     def _callback(self, topic: bytes, msg: bytes):
@@ -198,10 +198,10 @@ class MQTT:
         if self.client is None:
             self.wlan._wdt_feed()
             self.client = MQTTClient(
-                secrets.MQTT_CLIENT_ID,
-                secrets.MQTT_BROKER,
-                user=secrets.MQTT_BROKER_USER,
-                password=secrets.MQTT_BROKER_PW,
+                config_secrets.MQTT_CLIENT_ID,
+                config_secrets.MQTT_BROKER,
+                user=config_secrets.MQTT_BROKER_USER,
+                password=config_secrets.MQTT_BROKER_PW,
                 keepalive=30,
             )
         if self.client.sock is not None:
@@ -209,7 +209,7 @@ class MQTT:
             return True
         self.wlan._wdt_feed()
         self.client.set_callback(self._callback)
-        # print(f"DEBUG: MQTT Broker '{secrets.MQTT_BROKER}'")
+        # print(f"DEBUG: MQTT Broker '{config_secrets.MQTT_BROKER}'")
         try:
             self.wlan._wdt_feed()
             self.client.connect()
@@ -228,24 +228,29 @@ class MQTT:
         # self.wlan._wdt_feed()
         # self.publish_annotation(title="WLAN", text="connected")
         self._last_access_ms = time.ticks_ms()
-        print(f"DEBUG: MQTT connected to {secrets.MQTT_BROKER}")
+        print(f"DEBUG: MQTT connected to {config_secrets.MQTT_BROKER}")
         return True
 
-    def publish(self, fields: dict, tags: dict) -> None:
+    def publish(self, fields: dict, tags: dict) -> bool:
+        """
+        return True if published.
+        """
         if not self.connect():
-            return
-        tags["setup"] = "zeus"
-        tags["room"] = "B15"
+            return False
+
+        tags.update(config_secrets.MQTT_TAGS)
         measurements = [
             {
-                "measurement": secrets.MQTT_CLIENT_ID,  # a measurement has one 'measurement'. It is the name of the pcb.
+                "measurement": utils_influxdb.influxdb_escape(
+                    config_secrets.MQTT_CLIENT_ID
+                ),  # a measurement has one 'measurement'. It is the name of the pcb.
                 "fields": fields,
                 "tags": tags,
             },
         ]
         payload = utils_influxdb.build_payload(measurements)
         if False:
-            print(f"{MQTT_BROKER}: {PUBLISH_TOPIC}")
+            print(f"{config_secrets.MQTT_BROKER}: {PUBLISH_TOPIC}")
             print(payload)
         try:
             self.wlan._wdt_feed()
@@ -253,22 +258,26 @@ class MQTT:
         except OSError as e:
             print(f"ERROR: MQTT publish() failed: {e}")
             self.wlan.power_off()
-            return
+            return False
         try:
             self.wlan._wdt_feed()
             self.client.check_msg()
         except OSError as e:
             print(f"ERROR: MQTT check_msg() failed: {e}")
             self.wlan.power_off()
-            return
+            return False
+        return True
 
-    def publish_annotation(self, title: str, text: str, severity="INFO") -> None:
+    def publish_annotation(self, title: str, text: str, severity="INFO") -> bool:
+        """
+        return True if published.
+        """
         fields = {
-            "title": f'"{title}"',
+            "title": f'"{title}: {text}"',
             "text": f'"{text}"',
         }
         tags = {
             "severity": severity,
             "event": "annotation",
         }
-        self.publish(fields=fields, tags=tags)
+        return self.publish(fields=fields, tags=tags)

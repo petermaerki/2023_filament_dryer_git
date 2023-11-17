@@ -13,6 +13,8 @@ import utils_wlan
 
 import utils_button
 import utils_wlan
+import utils_constants
+import config_secrets
 from utils_wdt import wdt
 from utils_logstdout import logfile
 from utils_log import LogfileTags
@@ -20,10 +22,20 @@ from utils_timebase import tb
 from mod_hardware import Hardware
 from mod_sensoren import Sensoren
 from mod_statemachine import Statemachine
+from utils_app_package_poll import new_version_available, sw_version
 from utils_constants import DIRECTORY_LOGS
 
+ENABLE_APP_PACKAGE_UPDATE = True
+ENABLE_WDT = True
 
-wdt.enable()
+if ENABLE_WDT:
+    wdt.enable()
+
+
+boot_cause = {
+    machine.PWRON_RESET: "power on",
+    machine.WDT_RESET: "watchdog reset",
+}.get(machine.reset_cause(), "soft reset")
 
 hardware = Hardware()
 # hardware.production_test(wdt.feed)
@@ -31,6 +43,30 @@ sensoren = Sensoren(hardware=hardware)
 
 sm = Statemachine(hardware=hardware, sensoren=sensoren)
 sensoren.sensor_statemachine.set_sm(sm=sm)
+
+
+class AppPackage:
+    def __init__(self):
+        self.next_poll_ms = 0
+
+    def poll(self):
+        if not ENABLE_APP_PACKAGE_UPDATE:
+            return
+
+        if tb.now_ms < self.next_poll_ms:
+            return
+
+        self.next_poll_ms += 10 * utils_constants.DURATION_MIN_MS
+
+        version = "mpy_version/6.1"
+        # version = "src"
+        dict_tar = new_version_available(version, wdt_feed=wdt.feed)
+
+        if dict_tar is not None:
+            # Upload late: We will reboot afterwords!
+            from utils_app_package_download import download_new_version
+
+            download_new_version(dict_tar, wdt_feed=wdt.feed)
 
 
 def main_core2(mqtt):
@@ -51,6 +87,8 @@ def main_core2(mqtt):
 
     # logfile.log(LogfileTags.SENSORS_HEADER, sensoren.sensors.get_header())
 
+    mqtt_first_time = True
+    app_package = AppPackage()
     while True:
         sensoren.measure()
 
@@ -64,10 +102,22 @@ def main_core2(mqtt):
             stdout=False,
         )
 
-        # print("get_mqtt_fields")
-        # print(sensors.get_mqtt_fields())
+        if mqtt_first_time:
+            if mqtt.publish_annotation(
+                title=f"Boot due to {boot_cause}",
+                text=f"serial {config_secrets.HW_SERIAL}, {config_secrets.HW_VERSION}",
+            ):
+                mqtt.publish_annotation(
+                    title=f"Software version",
+                    text=sw_version(),
+                )
+                mqtt_first_time = False
+
         mqtt.publish(fields=sensoren.sensors.get_mqtt_fields(), tags={})
 
+        app_package.poll()
+
+        gc.collect()
         tb.sleep()
 
 
@@ -157,8 +207,6 @@ def smp():
 
 def smx(new_state: str):
     sm.switch_by_name(new_state)
-
-
 
 
 wlan = utils_wlan.WLAN()

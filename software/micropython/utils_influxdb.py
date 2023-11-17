@@ -1,7 +1,12 @@
 # https://docs.influxdata.com/influxdb/cloud/reference/key-concepts/data-elements/
 import re
 
-_RE_VALID_CHARACTERS = re.compile(r"^[0-9a-zA-Z_.-]+$")
+_RE_VALID_CHARACTERS_NAME = re.compile(r"^[0-9a-zA-Z_\-\.]+$")
+_RE_VALID_CHARACTERS_VALUE = re.compile(r"^[0-9a-zA-Z_\-\., ]*$")
+
+
+def influxdb_escape(text: str) -> str:
+    return text.replace(" ", r"\ ").replace(",", r"\,").replace("=", r"\=")
 
 
 measurements_example = [
@@ -43,22 +48,32 @@ def build_payload(measurements, validate=True):
         for measurement in measurements:
 
             def iter_tags():
-                yield measurement["measurement"]
+                meas_name = measurement["measurement"]
+                assert not meas_name.startswith("_"), measurement
+                yield meas_name
+
                 for tag_name, tag_value in measurement["tags"].items():
                     if validate:
-                        assert _RE_VALID_CHARACTERS.match(tag_name), repr(tag_name)
-                        assert _RE_VALID_CHARACTERS.match(tag_value), repr(tag_name)
+                        assert _RE_VALID_CHARACTERS_NAME.match(tag_name), tag_name
+                        assert _RE_VALID_CHARACTERS_VALUE.match(tag_value), tag_value
+
+                        tag_value = influxdb_escape(tag_value)
 
                     yield f"{tag_name}={tag_value}"
 
             def iter_fields():
                 for field_name, field_value in measurement["fields"].items():
                     if validate:
-                        assert _RE_VALID_CHARACTERS.match(field_name), repr(field_name)
-                        if not field_value.startswith('"'):
-                            assert _RE_VALID_CHARACTERS.match(field_value), repr(
+                        assert _RE_VALID_CHARACTERS_NAME.match(field_name), field_name
+                        if field_value.startswith('"'):
+                            # There must be exactly on " at the beginning and one at the end!
+                            assert field_value.count('"') == 2, field_value
+                        else:
+                            assert _RE_VALID_CHARACTERS_VALUE.match(field_value), repr(
                                 field_value
                             )
+                            field_value = influxdb_escape(field_value)
+
                     yield f"{field_name}={field_value}"
 
             yield ",".join(iter_tags()) + " " + ",".join(iter_fields())

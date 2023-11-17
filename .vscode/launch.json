@@ -35,6 +35,21 @@
       "request": "launch",
       "program": "${file}",
       "console": "integratedTerminal"
-    }
+    },
+    {
+      "name": "App Packager",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/software/app_packager/app_packager.py",
+      "args": [
+        "--verbose=1",
+        "--no-checkout=1",
+        "--repo=${workspaceFolder}"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+
   ]
 }
