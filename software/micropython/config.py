@@ -12,7 +12,7 @@ SM_REGENERATE_MAX_DEW_C_ABOVE_AMBIENT_C = 5.0
 
 SM_COOLDOWN_TEMPERATURE_HEATER_C = HEATER_BOARD_MAX_C - 50.0
 
-SM_DRYWAIT_DIFF_ABS_G_KG = const(0.25)
+SM_DRYWAIT_DIFF_ABS_G_KG = const(0.5)
 SM_DRYWAIT_ABS_G_KG = 4.0 # auf diesen Feuchtigkeitslevel wird getrocknet, 4.0 g/kg entspricht ca. dewpoint 0.0 C
 
 # Nach dem dryfan steigt im drywait die Filamentfeuchte wieder an falls das Silikagel vorher noch getrocknet hat. 
