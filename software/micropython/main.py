@@ -2,6 +2,7 @@ import os
 import rp2
 import os
 import gc
+import time
 import machine
 import micropython
 import _thread
@@ -29,13 +30,20 @@ ENABLE_APP_PACKAGE_UPDATE = True
 ENABLE_WDT = True
 
 if ENABLE_WDT:
-    wdt.enable()
+    print("Hit <ctrl-c> to disable the watchdog...")
+    try:
+        time.sleep(2.0)
+        wdt.enable()
+    except KeyboardInterrupt:
+        print("...watchdog disabled!")
+        ENABLE_APP_PACKAGE_UPDATE = False
 
 
 boot_cause = {
     machine.PWRON_RESET: "power on",
     machine.WDT_RESET: "watchdog reset",
 }.get(machine.reset_cause(), "soft reset")
+print(f"Boot cause: {boot_cause} ({machine.reset_cause()})")
 
 hardware = Hardware()
 # hardware.production_test(wdt.feed)
@@ -58,8 +66,8 @@ class AppPackage:
 
         self.next_poll_ms += 10 * utils_constants.DURATION_MIN_MS
 
-        version = "mpy_version/6.1"
-        # version = "src"
+        # version = "mpy_version/6.1"
+        version = "src"
         dict_tar = new_version_available(version, wdt_feed=wdt.feed)
 
         if dict_tar is not None:
@@ -87,7 +95,7 @@ def main_core2(mqtt):
 
     # logfile.log(LogfileTags.SENSORS_HEADER, sensoren.sensors.get_header())
 
-    mqtt_first_time = True
+    mqtt_first_time_counter = 0
     app_package = AppPackage()
     while True:
         sensoren.measure()
@@ -102,16 +110,19 @@ def main_core2(mqtt):
             stdout=False,
         )
 
-        if mqtt_first_time:
+        # Send two annotations within 20s
+        if mqtt_first_time_counter == 1:
             if mqtt.publish_annotation(
-                title=f"Boot due to {boot_cause}",
-                text=f"serial {config_secrets.HW_SERIAL}, {config_secrets.HW_VERSION}",
-            ):
-                mqtt.publish_annotation(
                     title=f"Software version",
                     text=sw_version(),
-                )
-                mqtt_first_time = False
+                ):
+                mqtt_first_time_counter += 1
+        if mqtt_first_time_counter == 0:
+            if mqtt.publish_annotation(
+                title=f"Boot due to {boot_cause}",
+                text=f"serial {config_secrets.HW_SERIAL}, {config_secrets.HW_VERSION}, {wlan.ip_address}",
+            ):
+                mqtt_first_time_counter += 1
 
         mqtt.publish(fields=sensoren.sensors.get_mqtt_fields(), tags={})
 
