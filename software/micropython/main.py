@@ -1,16 +1,12 @@
-import os
 import rp2
 import os
 import gc
-import time
 import machine
 import micropython
 import _thread
 
 
 micropython.alloc_emergency_exception_buf(100)
-
-import utils_wlan
 
 import utils_button
 import utils_wlan
@@ -29,16 +25,6 @@ from utils_constants import DIRECTORY_LOGS
 ENABLE_APP_PACKAGE_UPDATE = True
 ENABLE_WDT = True
 
-if ENABLE_WDT:
-    print("Hit <ctrl-c> to disable the watchdog...")
-    try:
-        time.sleep(2.0)
-        wdt.enable()
-    except KeyboardInterrupt:
-        print("...watchdog disabled!")
-        ENABLE_APP_PACKAGE_UPDATE = False
-
-
 boot_cause = {
     machine.PWRON_RESET: "power on",
     machine.WDT_RESET: "watchdog reset",
@@ -46,6 +32,15 @@ boot_cause = {
 print(f"Boot cause: {boot_cause} ({machine.reset_cause()})")
 
 hardware = Hardware()
+
+if ENABLE_WDT:
+    if hardware.PIN_GPIO_BUTTON.value() == 0:
+        print("User button pressed: Watchdog disabled!")
+        ENABLE_APP_PACKAGE_UPDATE = False
+    else:
+        wdt.enable()
+        print("To disable the watchdog: Press the user button before power on...")
+
 # hardware.production_test(wdt.feed)
 sensoren = Sensoren(hardware=hardware)
 
@@ -113,9 +108,9 @@ def main_core2(mqtt):
         # Send two annotations within 20s
         if mqtt_first_time_counter == 1:
             if mqtt.publish_annotation(
-                    title=f"Software version",
-                    text=sw_version(),
-                ):
+                title="Software version",
+                text=sw_version(),
+            ):
                 mqtt_first_time_counter += 1
         if mqtt_first_time_counter == 0:
             if mqtt.publish_annotation(
@@ -126,7 +121,8 @@ def main_core2(mqtt):
 
         mqtt.publish(fields=sensoren.sensors.get_mqtt_fields(), tags={})
 
-        app_package.poll()
+        if wlan.got_ip_address:
+            app_package.poll()
 
         gc.collect()
         tb.sleep()
