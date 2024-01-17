@@ -33,13 +33,13 @@ print(f"Boot cause: {boot_cause} ({machine.reset_cause()})")
 
 hardware = Hardware()
 
-if ENABLE_WDT:
-    if hardware.PIN_GPIO_BUTTON.value() == 0:
-        print("User button pressed: Watchdog disabled!")
-        ENABLE_APP_PACKAGE_UPDATE = False
-    else:
-        wdt.enable()
-        print("To disable the watchdog: Press the user button before power on...")
+if ENABLE_WDT and (hardware.PIN_GPIO_BUTTON.value() == 1):
+    wdt.enable()
+    print("To disable the watchdog: Press the user button before power on...")
+else:
+    print("User button pressed: Watchdog disabled!")
+    ENABLE_APP_PACKAGE_UPDATE = False
+    wdt.disable()
 
 # hardware.production_test(wdt.feed)
 sensoren = Sensoren(hardware=hardware)
@@ -93,7 +93,9 @@ def main_core2(mqtt):
     mqtt_first_time_counter = 0
     app_package = AppPackage()
     while True:
+        hardware.led_toggle()
         sensoren.measure()
+        hardware.led_toggle()
 
         sm.state()
         hardware.heater.set_board_C(board_C=sensoren.heater_C)

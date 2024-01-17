@@ -21,6 +21,11 @@ class Wdt:
         assert self._wdt is None
         self._wdt = machine.WDT(timeout=WDT_TIMEOUT_MAX_MS)
 
+    def disable(self) -> None:
+        # Stop/disable the RP2040 watchdog timer
+        # 0x40058000 = WATCHDOG_CTRL register, bit 30 is the ENABLE bit
+        machine.mem32[0x40058000] = machine.mem32[0x40058000] & ~(1 << 30)
+
     def feed(self):
         time_since_last_feed = time.ticks_diff(
             time.ticks_ms(), self._monitor_last_wdt_ms
