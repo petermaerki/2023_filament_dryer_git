@@ -27,14 +27,13 @@ class Wdt:
         machine.mem32[0x40058000] = machine.mem32[0x40058000] & ~(1 << 30)
 
     def feed(self):
-        time_since_last_feed = time.ticks_diff(
-            time.ticks_ms(), self._monitor_last_wdt_ms
-        )
-        self._monitor_last_wdt_ms = time.ticks_ms()
-        if time_since_last_feed > WDT_WARNING_MS:
+        now_ms = time.ticks_ms()
+        duration_since_last_feed_ms = time.ticks_diff(now_ms, self._monitor_last_wdt_ms)
+        self._monitor_last_wdt_ms = now_ms
+        if duration_since_last_feed_ms > WDT_WARNING_MS:
             # log.log(msg, level=INFO)
             print(
-                f"WARNING: wdt.feed(): {time_since_last_feed:d} ms elapsed, timeout {WDT_TIMEOUT_MAX_MS} ms"
+                f"WARNING: wdt.feed(): {duration_since_last_feed_ms:d} ms elapsed, timeout {WDT_TIMEOUT_MAX_MS} ms"
             )
         if self._wdt is not None:
             self._wdt.feed()

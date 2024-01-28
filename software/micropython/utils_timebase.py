@@ -28,7 +28,7 @@ class Timebase:
             # Be aware of the watchdog and do not sleep to long
             time.sleep_ms(min(sleep_ms, WDT_SLEEP_MS))
 
-        self.sleep_done_ms = time.ticks_diff(time.ticks_ms(), self.start_ms)
+        self.sleep_done_ms = self.now_ms
         wdt.feed()
 
 
