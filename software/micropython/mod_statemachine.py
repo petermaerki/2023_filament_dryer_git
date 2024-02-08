@@ -1,3 +1,4 @@
+import time
 import config
 
 from utils_logstdout import logfile
@@ -22,12 +23,11 @@ class Statemachine:
 
     def __init__(self, hardware: Hardware, sensoren: Sensoren):
         self._hw = hardware
-        self._start_ms = 0
         self._sensoren = sensoren
 
-        self._regenrate_last_fanon_ms = 0
+        self._regenerate_last_fanon_ms = time.ticks_ms()
         self._dryfan_list_abs_g_kg = []
-        self._dryfan_next_ms = 0
+        self._dryfan_next_ms = time.ticks_ms()
         self._forward_to_next_state = False
         self.statechange_cb = lambda state, new_state, why: state
         # Attention: The three following lines have to match the same state
@@ -45,10 +45,6 @@ class Statemachine:
             self._forward_to_next_state = False
             return True
         return False
-
-    @property
-    def duration_ms(self) -> int:
-        return tb.now_ms - self._start_ms
 
     def switch_by_name(self, new_state: str) -> None:
         state_name = f"_state_{new_state}"
@@ -70,7 +66,6 @@ class Statemachine:
         self.statechange_cb(self.state_name, new_state_name, why)
         self.state_name = new_state_name
         self.state = new_state
-        self._start_ms = tb.now_ms
 
         new_entry_name = self.PREFIX_ENTRY + new_state_name
         f_entry = getattr(self, new_entry_name)
@@ -93,7 +88,7 @@ class Statemachine:
 
     # State: REGENERATE
     def _entry_regenerate(self) -> None:
-        self._regenrate_last_fanon_ms = 0
+        self._regenerate_last_fanon_ms = time.ticks_ms()
         self._hw.PIN_GPIO_FAN_AMBIENT.off()
         self._hw.PIN_GPIO_FAN_FILAMENT.off()
         self._hw.PIN_GPIO_FAN_BOX.off()
@@ -120,15 +115,17 @@ class Statemachine:
         self._hw.heater.set_power(heat_power_on)
 
         if fan_on:
-            self._regenrate_last_fanon_ms = tb.now_ms
+            self._regenerate_last_fanon_ms = time.ticks_ms()
             return
 
         # Do state change if fan was off for a 'long' time.
         if self._sensoren.heater_C < config.SM_REGENERATE_HOT_C:
-            self._regenrate_last_fanon_ms = tb.now_ms
+            self._regenerate_last_fanon_ms = time.ticks_ms()
             return
 
-        duration_fan_off_ms = tb.now_ms - self._regenrate_last_fanon_ms
+        duration_fan_off_ms = time.ticks_diff(
+            time.ticks_ms(), self._regenerate_last_fanon_ms
+        )
         assert duration_fan_off_ms >= 0
         if duration_fan_off_ms > config.SM_REGENERATE_NOFAN_MS:
             why = f"duration_fan_off_ms {duration_fan_off_ms}ms > SM_REGENERATE_NOFAN_MS {config.SM_REGENERATE_NOFAN_MS}ms"
@@ -164,7 +161,7 @@ class Statemachine:
         self._hw.PIN_GPIO_FAN_AMBIENT.off()
         self._hw.heater.set_power(False)
         self._dryfan_list_abs_g_kg = []
-        self._dryfan_next_ms = tb.now_ms
+        self._dryfan_next_ms = time.ticks_ms()
 
         self._hw.PIN_GPIO_LED_GREEN.value(0)
         self._hw.PIN_GPIO_LED_RED.value(0)
@@ -175,13 +172,16 @@ class Statemachine:
             self._switch(self._state_drywait, WHY_FORWARD)
             return
 
-        if tb.now_ms >= self._dryfan_next_ms:
+        diff_ms = time.ticks_diff(self._dryfan_next_ms, time.ticks_ms())
+        if diff_ms < 0:
             logfile.log(
                 LogfileTags.LOG_INFO,
                 f"len={len(self._dryfan_list_abs_g_kg)}, append({self._sensoren.filament_abs_g_kg})",
                 stdout=True,
             )
-            self._dryfan_next_ms += config.SM_DRYFAN_NEXT_MS
+            self._dryfan_next_ms = time.ticks_add(
+                self._dryfan_next_ms, config.SM_DRYFAN_NEXT_MS
+            )
             self._dryfan_list_abs_g_kg.insert(0, self._sensoren.filament_abs_g_kg)
 
             if len(self._dryfan_list_abs_g_kg) > config.SM_DRYFAN_ELEMENTS:
@@ -224,7 +224,7 @@ class Statemachine:
         self._dry_wait_filament_abs_g_kg = (
             self._sensoren.sensor_sht31_filament.measurement_abs_g_kg.value
         )
-        self._entry_drywait_ms = tb.now_ms
+        self._entry_drywait_ms = time.ticks_ms()
 
         self._hw.PIN_GPIO_LED_GREEN.value(1)
         self._hw.PIN_GPIO_LED_RED.value(0)
@@ -241,7 +241,7 @@ class Statemachine:
             - self._dry_wait_filament_abs_g_kg
         )
         humidity_increased_to_much = diff_abs_g_kg > config.SM_DRYWAIT_DIFF_ABS_G_KG
-        time_drywait_ms = tb.now_ms - self._entry_drywait_ms
+        time_drywait_ms = time.ticks_diff(time.ticks_ms(), self._entry_drywait_ms)
         time_drywait_not_to_short = (
             time_drywait_ms > config.SM_DRYWAIT_MINTIME_BACK_REGENERATE_MS
         )
