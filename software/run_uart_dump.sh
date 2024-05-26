@@ -1,0 +1,1 @@
+serial_dump --vid=2E8A --pid=0005

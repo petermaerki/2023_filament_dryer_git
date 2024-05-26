@@ -6,3 +6,4 @@ software_experiments/mqtt_pico/experiment_b/secrets.py
 software/micropython/config_*.py
 web_downloads/**
 **/*.pyc
+software/dump_uart_*.txt
