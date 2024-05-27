@@ -8,6 +8,7 @@ import binascii
 import config_secrets
 
 TAR_FILENAME = const("config_package.tar")
+FILENAME_UPDATE_SUCCESS = const("update_success.txt")
 
 
 # class _DirCacheObsolete:
@@ -92,7 +93,10 @@ def _remove_obsolete_files():
         if file in files:
             continue
         print(f"Remove file {file}")
-        os.remove(file)
+        try:
+            os.remove(file)
+        except OsError as e:
+            print(f"Failed to remove '{file}': {e}")
 
     if "main.mpy" in files:
         print("'main.mpy' will not be started by micropython. Add patch!")
@@ -121,6 +125,9 @@ def download_new_version(dict_tar: dict, wdt_feed = lambda: False) -> None:
 
     wdt_feed()
     _remove_obsolete_files()
+
+    with open(FILENAME_UPDATE_SUCCESS, "w"):
+        pass
 
     os.sync()
     machine.soft_reset()

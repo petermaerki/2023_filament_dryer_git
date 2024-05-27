@@ -1,7 +1,9 @@
+import os
 import json
 import urequests
 import config_secrets
 
+FILENAME_UPDATE_SUCCESS = const("update_success.txt")
 
 def _read_manifest() -> dict:
     try:
@@ -32,6 +34,10 @@ def new_version_available(tar_version="src", wdt_feed=lambda: False):
 
     dict_tar = latest_package["dict_tars"][tar_version]
 
+    if not os.exists(FILENAME_UPDATE_SUCCESS):  
+        print(f"New download: '{FILENAME_UPDATE_SUCCESS}' does not exist: The last update failed.")
+        return dict_tar
+        
     manifest = _read_manifest()
     if manifest is None:
         print("New download: Failed to read 'config_package_manifest.json'")
@@ -43,4 +49,9 @@ def new_version_available(tar_version="src", wdt_feed=lambda: False):
         return None
 
     print(f"New download: {latest_package['commit_pretty']}")
+    try:
+        os.remove(FILENAME_UPDATE_SUCCESS)
+    except OSError as e:
+        print(f"Failed to remove '{FILENAME_UPDATE_SUCCESS}': {e}")
+    
     return dict_tar
