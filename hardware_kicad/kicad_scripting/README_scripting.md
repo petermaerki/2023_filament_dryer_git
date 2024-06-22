@@ -1,1 +1,0 @@
-Place files in ~/.config/kicad/7.0/scripting/plugins

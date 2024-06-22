@@ -1,1 +1,0 @@
-Origin: https://github.com/ncarandini/KiCad-RP-Pico/blob/main/RP-Pico%20Libraries/MCU_RaspberryPi_and_Boards.pretty/RPi_Pico_SMD_TH.kicad_mod
